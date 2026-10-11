@@ -8,6 +8,8 @@
 
 0.1.0 没有更新入口，需要先手动覆盖安装一次 0.1.1；之后可在应用内更新。不要卸载旧版：卸载会清空安卓本机存档。
 
+Android 10 测试模拟器在首次增加联网权限的覆盖安装后，曾返回系统 `socket failed: EPERM`，设备重启后公网检查恢复，存档保留。旧版首次升级遇到这一错误时，请重启平板再检查更新。
+
 ## 服务
 
 与 `star-collect` 共用 139.224.12.141 上的 `github-release.service`：
@@ -62,3 +64,5 @@ $env:AI_PET_UPDATE_TEST_URL='http://127.0.0.1:8765/latest'
 `update_fixture.py` 参数：`--apk` 正确签名新版、`--bad-apk` 不同证书新版、`--old-apk` 旧版、`--foreign-apk` 其他应用 APK。启动该本地服务后，运行 `adb shell am instrument -w com.string.aipet.test/com.string.aipet.UpdateInstrumentation` 验证实际 APK 拒绝路径、篡改和 Provider 权限。再执行 `tablet_smoke.py`、`tablet_regression.py`，最后 `tablet_update.py` 验证实际界面、安装权限和系统确认升级。正式发布后 `tablet_update.py --public` 验证公网镜像与最新版本界面。
 
 debug 只允许 `127.0.0.1`、`10.0.2.2` 的测试 HTTP，release 始终只允许 HTTPS。
+
+公网回归前确认模拟器已经连上 Wi-Fi。API 36 的默认开放网络可用 `adb shell cmd wifi connect-network AndroidWifi open` 连接；`adb shell cmd wifi status` 确认已连接后再运行 `--public`。

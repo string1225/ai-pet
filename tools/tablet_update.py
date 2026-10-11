@@ -2,7 +2,8 @@
 
 Run fixture mode after tablet_smoke.py with the version 1 fixture build installed.
 Public mode checks the production HTTPS service after publishing and installing 0.1.1.
-No app data is cleared. Emulator adb root permits verifying non-debuggable release saves.
+No pet data is cleared. Fixture mode resets only update preferences and cached APKs.
+Emulator adb root permits verifying non-debuggable release saves.
 """
 import argparse
 import json
@@ -72,6 +73,13 @@ def main():
     t.cmd("root")
     t.cmd("wait-for-device")
     t.cmd("reverse", "tcp:8765", "tcp:8765")
+    if not args.public and not args.legacy_apk:
+        t.cmd("shell", "am", "force-stop", APP)
+        # Revoking install permission kills the app on Android; prepare before launch.
+        t.cmd("shell", "appops", "set", APP, "REQUEST_INSTALL_PACKAGES", "default")
+        for name in ("shared_prefs/app-update.xml", "shared_prefs/app-update.xml.bak",
+                     "files/updates/update.apk", "files/updates/download.part.apk"):
+            t.cmd("shell", "rm", "-f", "/data/user/0/" + APP + "/" + name)
     t.restart()
     before = save(t)
     if args.legacy_apk:
@@ -88,7 +96,7 @@ def main():
         open_update(t)
         t.tap("检查更新")
         wait(t, "当前已经是最新版本。", timeout=80)
-        t.check(True, "Production HTTPS mirror returns the installed latest release")
+        t.check(True, "Production update check returns the installed latest release")
         t.shot("update-current")
         t.tap("关闭")
         t.check(save(t) == before, "Checking the production release leaves all pet saves unchanged")
@@ -120,7 +128,6 @@ def main():
         t.tap("关闭")
         t.restart(); open_update(t); t.find("安装新版")
         t.check(True, "Verified download and install action survive process restart")
-        t.cmd("shell", "appops", "set", APP, "REQUEST_INSTALL_PACKAGES", "default")
         t.tap("安装新版"); parent(t)
         nodes = list(t.tree().iter("node"))
         t.check(any("settings" in n.get("package", "") for n in nodes), "First install opens Android unknown-source settings")
@@ -140,6 +147,9 @@ def main():
         while time.monotonic() < deadline and "versionCode=2 " not in t.cmd("shell", "dumpsys", "package", APP):
             time.sleep(.5)
         t.check("versionCode=2 " in t.cmd("shell", "dumpsys", "package", APP), "System confirmation actually upgrades code 1 to code 2")
+        wait(t, "App installed.")
+        t.tap("Open")
+        t.check(wait(t, "设置").get("package") == APP, "System Open launches the actual upgraded pet home")
         t.restart()
         t.check(save(t) == before, "System upgrade preserves pet names, incubation, care, stars and all subjects")
         t.check("debuggable" not in t.cmd("shell", "dumpsys", "package", APP).lower(), "Installed update is a non-debuggable release build")

@@ -119,10 +119,20 @@ class Tablet:
 
     def restart(self):
         self.cmd("shell", "am", "force-stop", APP)
-        self.cmd("shell", "am", "start", "-W", "-n", f"{APP}/.MainActivity")
+        self.cmd("shell", "am", "start", "-W", "-f", "0x10008000", "-n", f"{APP}/.MainActivity")
         # The launch transition can expose a UI tree before InputDispatcher accepts touches.
         time.sleep(1.6)
-        self.find("芽芽小屋")
+        # NEW_TASK | CLEAR_TASK clears a system installer left in the app's task.
+        # Require an actual app control; the installer also displays the app name.
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            try:
+                settings = self.find("设置", clickable=True)
+                if settings.get("package") == APP:
+                    return
+            except AssertionError:
+                time.sleep(.3)
+        raise AssertionError("App home did not become interactive after restart")
 
 
 def main():

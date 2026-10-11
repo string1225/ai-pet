@@ -2,7 +2,7 @@
 
 ## 0.1.1 手动更新
 
-验证日期：2026-10-11。与 star-collect 共用 139 的 Release 镜像，新仓库通过独立 systemd drop-in 加入白名单。健康接口正常，原 star-collect 的 latest 仍返回 v0.1.1。
+验证日期：2026-10-11 至 12 日。与 star-collect 共用 139 的 Release 镜像，新仓库通过独立 systemd drop-in 加入白名单。健康接口正常，原 star-collect 的 latest 仍返回 v0.1.1。
 
 - `assembleDebug`、`assembleRelease` 成功；33 个 JUnit 测试通过、0 失败。新增版本比较、正式发布筛选、固定仓库与 APK 资产、摘要、大小、重定向策略测试。
 - debug / release lint 均为 0 错误、13 提示。
@@ -10,9 +10,14 @@
 - 原有玩法在更新测试构建完成 35 项 UI 冒烟，照顾、四学科、睡眠、重启存档均通过。
 - 15 项附加回归通过：旋转后的答题锁定、改名、家长门槛、取消重置与确认重置均保持原有行为。
 - API 29 上将最初的 0.1.0 覆盖升级为不可调试的正式 0.1.1，4 项检查通过。完整 `pet_home` 内容在升级前后相同，新版家长更新入口可以打开。
-- API 36 完成 14 项手动更新 UI 检查：启动不联网、家长门槛、网络故障重试、缺失 APK、损坏摘要及不同签名拒绝、下载后重启继续、系统未知来源权限、返回后不自动安装、安卓显式确认。实际点击系统确认后从 code 1 升级到 code 2，正式版不可调试，完整宠物存档保持一致。
+- API 36 完成 15 项手动更新 UI 检查：启动不联网、家长门槛、网络故障重试、缺失 APK、损坏摘要及不同签名拒绝、下载后重启继续、系统未知来源权限、返回后不自动安装、安卓显式确认。实际点击系统确认后从 code 1 升级到 code 2，并点击系统「Open」进入真实新版首页，正式版不可调试，完整宠物存档保持一致。
+- 测试脚本清理旧的安装器任务，并通过本应用的「设置」按钮确认实际首页；仅 app 名字会匹配系统安装器，不能用作启动成功依据。安装权限重置会让系统结束应用进程，因此测试准备在启动应用前完成。
+- API 29 首次从无 INTERNET 权限的 0.1.0 覆盖安装后，PackageManager 已授权且进程包含 internet gid，但 socket 返回 EPERM；设备重启后公网更新检查通过，存档保留。此首次升级兼容性现象记录在更新说明中。
+- Android 10、16 的最终正式包均完成 2 项公网 UI 检查：查询返回当前最新版本，完整宠物存档不变。API 36 的模拟器需要先连接 AndroidWifi；无网络时应用显示可重试的查询错误。
 
-更新界面截图：[发现新版](../artifacts/update-available.png)、[下载完成](../artifacts/update-ready.png)、[系统安装确认](../artifacts/update-system-confirm.png)、[升级后的小屋](../artifacts/update-installed-home.png)。
+正式发布 `v0.1.1`，镜像 latest 返回正确稳定版本，139 下载与本地正式包逐字节一致，原 star-collect 发布仍可访问。APK 大小 694,418 字节，SHA-256：`2b6c2be72c5332ec0c312d5d05a39d230847789fa4287a60c9b0b7752bcb97c3`。镜像 APK 的签名也与原 0.1.0 相同。
+
+更新界面截图：[发现新版](../artifacts/update-available.png)、[下载完成](../artifacts/update-ready.png)、[系统安装确认](../artifacts/update-system-confirm.png)、[升级后的小屋](../artifacts/update-installed-home.png)、[正式服务版本检查](../artifacts/update-current.png)。
 
 复现工具与签名配置见 [手动更新说明](manual-updates.md)。更新测试只使用可丢弃模拟器，没有操作实体平板。
 
