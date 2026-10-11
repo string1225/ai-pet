@@ -1,0 +1,12 @@
+.gradle/
+.idea/
+local.properties
+**/build/
+*.iml
+artifacts/*.apk
+artifacts/*.log
+artifacts/smoke-results.json
+artifacts/regression-results.json
+artifacts/*window.xml
+artifacts/debug-*.png
+tools/__pycache__/
