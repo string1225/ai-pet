@@ -6,7 +6,7 @@ import com.string.aipet.learning.Subject;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/** Versioned local save; no network account or permissions required. */
+/** Versioned local pet save, independent of the manual-update network and preferences. */
 public final class PetStore {
     private final SharedPreferences preferences;
     public PetStore(Context context) { preferences = context.getSharedPreferences("pet_home", Context.MODE_PRIVATE); }

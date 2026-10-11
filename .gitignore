@@ -4,9 +4,13 @@ local.properties
 **/build/
 *.iml
 artifacts/*.apk
+artifacts/*.idsig
 artifacts/*.log
 artifacts/smoke-results.json
 artifacts/regression-results.json
+artifacts/update-results.json
+artifacts/SHA256SUMS
+artifacts/*.keystore
 artifacts/*window.xml
 artifacts/debug-*.png
 tools/__pycache__/

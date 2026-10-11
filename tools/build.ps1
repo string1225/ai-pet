@@ -1,4 +1,4 @@
-param([switch]$Install, [string]$Serial = 'emulator-5556')
+param([switch]$Install, [switch]$Debug, [string]$Serial = 'emulator-5556', [int]$VersionCode = 2, [string]$VersionName = '0.1.1')
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectDirectory
@@ -14,11 +14,14 @@ try {
         $escapedSdk = $androidSdk.Replace('\', '/').Replace(':', '\:')
         Set-Content -LiteralPath 'local.properties' -Value "sdk.dir=$escapedSdk" -Encoding utf8
     }
-    & .\gradlew.bat assembleDebug testDebugUnitTest lintDebug --console=plain
+    if ($VersionName -notmatch '^\d+\.\d+\.\d+$' -or $VersionCode -lt 1) { throw 'Use a positive version code and X.Y.Z version name.' }
+    $variant = if ($Debug) { 'Debug' } else { 'Release' }
+    & .\gradlew.bat "assemble$variant" testDebugUnitTest "lint$variant" "-PappVersionCode=$VersionCode" "-PappVersionName=$VersionName" --console=plain
     if ($LASTEXITCODE -ne 0) { throw 'Android build or verification failed.' }
     New-Item -ItemType Directory -Force -Path 'artifacts' | Out-Null
-    $apkFile = Join-Path $projectDirectory 'artifacts\yaya-home-v0.1.0.apk'
-    Copy-Item -LiteralPath 'app\build\outputs\apk\debug\app-debug.apk' -Destination $apkFile -Force
+    $apkFile = Join-Path $projectDirectory "artifacts\ai-pet-v$VersionName$(if($Debug){'-debug'}).apk"
+    $apkSource = Join-Path $projectDirectory "app\build\outputs\apk\$($variant.ToLowerInvariant())\app-$($variant.ToLowerInvariant()).apk"
+    Copy-Item -LiteralPath $apkSource -Destination $apkFile -Force
     if ($Install) {
         $adbExe = Join-Path $androidSdk 'platform-tools\adb.exe'
         & $adbExe -s $Serial install -r $apkFile

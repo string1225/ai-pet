@@ -53,6 +53,7 @@ public final class MainActivity extends Activity {
     private boolean voiceReady;
     private Dialog activeDialog;
     private Lesson currentLesson;
+    private UpdateController updates;
     private Button careButton;
     private View petAvatar;
     private boolean wideHome;
@@ -63,6 +64,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
+        updates=new UpdateController(this,action->showParentGate("安装新版需要家长确认，成长记录会保留。",action));
         store=new PetStore(this); state=store.load(); engine=new PetEngine(state); engine.tick(System.currentTimeMillis());
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         buildHome();
@@ -292,24 +294,32 @@ public final class MainActivity extends Activity {
         LinearLayout p=Ui.column(this);
         addChoice(p,"给"+petSpecies()+"取名字","现在叫「"+state.name+"」",0xFFE8EDD9,this::rename);
         addChoice(p,state.sound?"关闭朗读":"打开朗读","中文和英文朗读使用设备已有的声音",0xFFE6EAF1,()->{state.sound=!state.sound;save();showSettings();});
+        addChoice(p,"检查应用更新","家长手动检查、下载和安装新版",0xFFE8EDD9,()->showParentGate("请家长帮忙检查应用更新。",updates::show));
         addChoice(p,"家长：重新领养","清空成长记录，回到宠物蛋",0xFFF1E2D9,this::parentGate);
-        TextView privacy=text("芽芽小屋 0.1.0\n成长记录保存在本机。没有广告、内购或账号。",13,Ui.MUTED,false);privacy.setLineSpacing(dp(5),1);p.addView(privacy);sheet("小屋设置","让陪伴更适合你。",p);
+        TextView privacy=text("芽芽小屋 "+BuildConfig.VERSION_NAME+"\n成长记录保存在本机。只有手动更新会联网。没有广告、内购或账号。",13,Ui.MUTED,false);privacy.setLineSpacing(dp(5),1);p.addView(privacy);sheet("小屋设置","让陪伴更适合你。",p);
     }
     private void rename(){
         LinearLayout p=Ui.column(this);EditText input=new EditText(this);input.setSingleLine(true);input.setText(state.name);input.setTextSize(23);input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(8)});input.setHint("最多 8 个字");p.addView(input,lp(-1,64));Ui.gap(p,20);
         p.addView(Ui.button(this,"保存名字",Ui.GREEN,()->{String name=input.getText().toString().trim();if(name.isEmpty()){input.setError("给小伙伴一个名字吧");return;}state.name=name;save();dismissDialog();room.react("以后我就叫"+name+"啦！");}),lp(-1,54));sheet("给"+petSpecies()+"取名字","取一个你喜欢的名字吧。",p);
     }
     private void parentGate(){
+        showParentGate("重新领养会清空这位小伙伴的成长记录。",()->
+            new AlertDialog.Builder(this).setTitle("重新领养？").setMessage("这会清空这位伙伴的名字、星星和成长记录，重新获得一枚"+petSpecies()+"蛋。").setNegativeButton("保留小伙伴",null).setPositiveButton("重新领养",(d,w)->{
+                dismissDialog();String speciesId=state.speciesId;state=new PetState();state.speciesId=speciesId;state.name=PetRegistry.get(speciesId).defaultName;engine=new PetEngine(state);store.save(state);buildHome();}).show(),false);
+    }
+    private void showParentGate(String reason,Runnable action){
+        showParentGate(reason,action,true);
+    }
+    private void showParentGate(String reason,Runnable action,boolean closeBeforeAction){
         LinearLayout p=Ui.column(this);EditText answer=new EditText(this);answer.setSingleLine(true);answer.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);answer.setHint("18 + 7 = ?");p.addView(answer,lp(-1,64));Ui.gap(p,16);
         p.addView(Ui.button(this,"继续",Ui.GREEN,()->{if(!answer.getText().toString().trim().equals("25")){answer.setError("请让家长完成这一步");return;}
-            new AlertDialog.Builder(this).setTitle("重新领养？").setMessage("这会清空这位伙伴的名字、星星和成长记录，重新获得一枚"+petSpecies()+"蛋。").setNegativeButton("保留小伙伴",null).setPositiveButton("重新领养",(d,w)->{
-                dismissDialog();String speciesId=state.speciesId;state=new PetState();state.speciesId=speciesId;state.name=PetRegistry.get(speciesId).defaultName;engine=new PetEngine(state);store.save(state);buildHome();}).show();}),lp(-1,54));sheet("请家长帮忙","重新领养会清空这位小伙伴的成长记录。",p);
+            if(closeBeforeAction)dismissDialog();action.run();}),lp(-1,54));sheet("请家长帮忙",reason,p);
     }
-    @Override protected void onResume(){super.onResume();if(engine!=null){engine.tick(System.currentTimeMillis());save();}if(room!=null)room.setRunning(true);clock.removeCallbacks(updateClock);clock.postDelayed(updateClock,60000);
+    @Override protected void onResume(){super.onResume();if(updates!=null)updates.onResume();if(engine!=null){engine.tick(System.currentTimeMillis());save();}if(room!=null)room.setRunning(true);clock.removeCallbacks(updateClock);clock.postDelayed(updateClock,60000);
         if(Build.VERSION.SDK_INT>=33){if(modernBack==null)modernBack=()->handleBack();getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,modernBack);}}
-    @Override protected void onPause(){super.onPause();clock.removeCallbacks(updateClock);if(room!=null)room.setRunning(false);if(store!=null)store.save(state);if(voice!=null)voice.stop();
+    @Override protected void onPause(){super.onPause();if(updates!=null)updates.onPause();clock.removeCallbacks(updateClock);if(room!=null)room.setRunning(false);if(store!=null)store.save(state);if(voice!=null)voice.stop();
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(modernBack);}
-    @Override protected void onDestroy(){clock.removeCallbacks(updateClock);dismissDialog();if(voice!=null)voice.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){clock.removeCallbacks(updateClock);if(updates!=null)updates.destroy();dismissDialog();if(voice!=null)voice.shutdown();super.onDestroy();}
     @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(room!=null)room.setRunning(focused);}
     @Override public void onConfigurationChanged(Configuration config){super.onConfigurationChanged(config);Lesson pending=currentLesson;if(room!=null)room.setRunning(false);dismissDialog();buildHome();if(pending!=null && pending.index<pending.questions.size())showQuestion(pending);}
     private void handleBack(){if(room.isPlaying()){room.cancelPlay();room.message("小球先休息一会儿");}else finish();}
