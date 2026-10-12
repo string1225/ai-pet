@@ -10,8 +10,12 @@
 - Android 10 从原正式 0.1.1 直接覆盖安装 0.2.1，全部旧宠物字段保留；实际设置 PIN、打开课程选项、六项任务与默认 40 / 40 / 20 比例均正常。
 - 在修复后的 Android 10 正式包执行原生兼容测试，用更高 code、相同证书的未发布 APK 验证真实更新器；签名、版本和完整 SHA-256 校验通过。测试输出同时记录三种系统查询标志的差异。
 - 修复后重新构建正式包，70 个单测通过、0 失败。Android 10 的 0.1.1 / 0.2.0 需先直接覆盖安装一次修复版，旧客户端无法通过自身有缺陷的签名读取安装修复。
+- 最终 0.2.1 公网服务验证通过：139 latest 返回 v0.2.1，下载与本地正式包逐字节相同，原 star-collect 仍返回 v0.1.1。Android 10 正式包完成 2 项公网检查，查询最新版本不改变宠物存档。
+- Android 16 另完成 0.2.0 → 0.2.1 的 11 项真实应用内升级检查：139 下载、系统确认、打开新版与不可调试状态均正常；全部旧宠物字段、家长 PIN、生活任务、成长账本、礼物、用量和学习方案均保留。
 
-Android 10 小屋：[family-api29-home.png](../artifacts/family-api29-home.png)。
+最终正式 APK 727,418 字节，SHA-256：`7e8bc660a5fc6040f1ddd43ba0f2ac01137b1675906c7a21a5a811bef2ab7743`。签名与最初 0.1.0 相同。
+
+截图：[Android 10 小屋](../artifacts/family-api29-home.png)、[Android 16 小屋](../artifacts/family-api36-home.png)、[发现新版](../artifacts/family-update-available.png)、[系统确认](../artifacts/family-system-upgrade.png)、[正式版本检查](../artifacts/update-current.png)。
 
 ---
 

@@ -77,7 +77,7 @@ def main():
         else:
             t.check(after.get(key) == value, "Existing save preference preserved: " + key)
     t.check("debuggable" not in package.lower(), "Published APK is a non-debuggable release")
-    t.find("今日约定"); t.shot("family-api29-home")
+    t.find("今日约定"); t.shot("family-api" + t.cmd("shell", "getprop", "ro.build.version.sdk").strip() + "-home")
     t.tap("设置"); t.tap("语数英学习方案"); wait(t, "请家长帮忙" if args.existing_family else "设置家长 PIN")
     t.check(True, "Parent PIN protects the upgraded learning plan")
     parent(t); wait(t, "语数英学习方案")
