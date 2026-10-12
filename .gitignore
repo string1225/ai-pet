@@ -9,6 +9,8 @@ artifacts/*.log
 artifacts/smoke-results.json
 artifacts/regression-results.json
 artifacts/update-results.json
+artifacts/family-results.json
+artifacts/pre-family-save.json
 artifacts/SHA256SUMS
 artifacts/*.keystore
 artifacts/*window.xml

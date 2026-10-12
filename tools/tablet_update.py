@@ -1,7 +1,7 @@
 """Actual manual-update UI and Android installer on a disposable rooted emulator.
 
 Run fixture mode after tablet_smoke.py with the version 1 fixture build installed.
-Public mode checks the production HTTPS service after publishing and installing 0.1.1.
+Public mode checks the production HTTPS service after installing the latest release.
 No pet data is cleared. Fixture mode resets only update preferences and cached APKs.
 Emulator adb root permits verifying non-debuggable release saves.
 """
@@ -44,9 +44,32 @@ def tap_node(t, node):
 
 
 def parent(t):
-    wait(t, "请家长帮忙")
-    enter(t, "25")
-    t.tap("继续")
+    deadline = time.monotonic() + 15
+    while True:
+        nodes = list(t.tree().iter("node"))
+        if any(n.get("class") == "android.widget.EditText" for n in nodes): break
+        if any("settings" in n.get("package", "") or "packageinstaller" in n.get("package", "") for n in nodes): return
+        if time.monotonic() >= deadline:
+            if any(n.get("text", "").startswith("应用更新") for n in nodes): return
+            raise AssertionError("Parent confirmation did not open")
+        time.sleep(.2)
+    if any(n.get("content-desc") == "家长 PIN" for n in nodes):
+        fill(t, "家长 PIN", "1357")
+        if any(n.get("content-desc") == "再次输入 PIN" for n in nodes):
+            fill(t, "再次输入 PIN", "1357"); t.tap("保存 PIN")
+        else:
+            t.tap("进入家长空间")
+    else:
+        wait(t, "请家长帮忙"); enter(t, "25"); t.tap("继续")
+
+
+def fill(t, label, value):
+    node = next(n for n in t.tree().iter("node") if n.get("class") == "android.widget.EditText" and n.get("content-desc") == label)
+    tap_node(t, node)
+    t.cmd("shell", "input", "keyevent", "123")
+    for _ in range(8): t.cmd("shell", "input", "keyevent", "67")
+    t.cmd("shell", "input", "text", value)
+    t.cmd("shell", "input", "keyevent", "4")
 
 
 def open_update(t):

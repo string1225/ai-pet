@@ -57,7 +57,24 @@ class Tablet:
         raise AssertionError(f"Missing UI control: {label}")
 
     def tap(self, label: str, prefix: bool = False):
-        n = self.find(label, prefix, clickable=True)
+        n = None
+        for attempt in range(14):
+            try:
+                candidate = self.find(label, prefix, clickable=True)
+                limits = [int(s) for s in re.findall(r"\d+", candidate.get("bounds", ""))]
+                if len(limits) == 4 and limits[2] > limits[0] + 8 and limits[3] > limits[1] + 8:
+                    n = candidate
+                    break
+            except AssertionError:
+                pass
+            scrollers = [node for node in self.tree().iter("node") if node.get("scrollable") == "true"]
+            if not scrollers:
+                raise AssertionError(f"Missing clickable control: {label}")
+            area = [int(s) for s in re.findall(r"\d+", scrollers[-1].get("bounds", ""))]
+            x = (area[0] + area[2]) // 2
+            self.cmd("shell", "input", "swipe", str(x), str(area[3]-35), str(x), str(area[1]+35), "200")
+            time.sleep(.2)
+        assert n is not None, f"Could not scroll to: {label}"
         bounds = [int(s) for s in re.findall(r"\d+", n.get("bounds", ""))]
         assert len(bounds) == 4 and bounds[2] > bounds[0] + 8, (label, n.attrib)
         self.cmd("shell", "input", "tap", str((bounds[0] + bounds[2]) // 2), str((bounds[1] + bounds[3]) // 2))
@@ -174,7 +191,7 @@ def main():
         t.tap(f"闪闪的小球，第{i + 1}回合")
     before = t.state()
     t.answer()
-    t.check(t.state()["energy"] == before["energy"] - 6 and t.state()["affection"] > before["affection"], "Three ball rounds and a pinyin question reward play")
+    t.check(t.state()["energy"] == before["energy"] - 6 and t.state()["affection"] > before["affection"], "Three ball rounds and a configured question reward play")
     for title in ["小小数学家", "拼音小火车", "汉字花园", "英语小世界"]:
         t.tap("学习"); t.tap(title)
         before = t.state()

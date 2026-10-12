@@ -1,6 +1,8 @@
 package com.string.aipet.model;
 
 import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.Set;
 import com.string.aipet.learning.Subject;
 
 /** Plain Java state, reusable by other screens/renderers and independently testable. */
@@ -12,6 +14,7 @@ public final class PetState {
     public boolean sleeping, sound = true;
     public long adoptedAt, lastUpdated = System.currentTimeMillis();
     public final EnumMap<Subject, Integer> learned = new EnumMap<>(Subject.class);
+    public final Set<String> appliedGifts = new HashSet<>();
     public boolean hatched() { return warmth >= 100; }
     public int level() { return 1 + affection / 30; }
     public int learnedCount(Subject subject) { return learned.getOrDefault(subject, 0); }

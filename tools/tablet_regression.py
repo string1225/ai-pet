@@ -44,11 +44,17 @@ def main():
     t.check(t.state()["name"]=="Yaya","Rename saves the entered pet name")
     t.restart();t.find("Yaya的家")
     t.check(t.state()["name"]=="Yaya","Renamed pet survives process restart")
-    t.tap("设置");t.tap("家长：重新领养");enter(t,"24");t.tap("继续")
-    t.check(t.state()["warmth"]==100,"Incorrect adult gate answer cannot reset pet")
-    enter(t,"25");t.tap("继续");t.tap("保留小伙伴")
+    from tablet_update import parent, fill
+    t.tap("设置");t.tap("家长：重新领养")
+    fields=list(t.tree().iter("node"))
+    if any(n.get("content-desc")=="再次输入 PIN" for n in fields):
+        fill(t,"家长 PIN","1357");fill(t,"再次输入 PIN","2468");t.tap("保存 PIN")
+    else:
+        fill(t,"家长 PIN","2468");t.tap("进入家长空间")
+    t.check(t.state()["warmth"]==100,"Incorrect parent PIN cannot reset pet")
+    parent(t);t.tap("保留小伙伴")
     t.check(t.state()["name"]=="Yaya","Canceling reset confirmation preserves the pet")
-    t.tap("继续");t.tap("重新领养")
+    t.tap("设置");t.tap("家长：重新领养");t.tap("重新领养")
     t.check(t.state()["warmth"]==0 and t.state()["stars"]==0 and t.state()["name"]=="芽芽","Confirmed parent reset restores a fresh egg")
     t.find("等待小生命");t.shot("egg-home")
     t.tap("一起孵化",prefix=True)

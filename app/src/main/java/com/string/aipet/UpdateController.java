@@ -49,11 +49,13 @@ public final class UpdateController {
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             if (busy) return;
+            parentGate.accept(() -> {
             if (!readyVersion().isEmpty()) install();
             else if (hasNewVersion()) download();
             else check();
+            });
         });
-        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> check());
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> { if (!busy) parentGate.accept(this::check); });
         refresh();
     }
 

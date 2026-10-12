@@ -7,9 +7,9 @@ android {
         applicationId = "com.string.aipet"
         minSdk = 26
         targetSdk = 36
-        testInstrumentationRunner = "com.string.aipet.UpdateInstrumentation"
-        versionCode = providers.gradleProperty("appVersionCode").orElse("2").get().toInt()
-        versionName = providers.gradleProperty("appVersionName").orElse("0.1.1").get()
+        testInstrumentationRunner = providers.gradleProperty("instrumentationRunner").orElse("com.string.aipet.FamilyInstrumentation").get()
+        versionCode = providers.gradleProperty("appVersionCode").orElse("3").get().toInt()
+        versionName = providers.gradleProperty("appVersionName").orElse("0.2.0").get()
         buildConfigField("String", "UPDATE_TEST_URL", "\"\"")
     }
     buildFeatures { buildConfig = true }

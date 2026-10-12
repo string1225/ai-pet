@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import com.string.aipet.learning.Subject;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 /** Versioned local pet save, independent of the manual-update network and preferences. */
 public final class PetStore {
@@ -34,10 +35,15 @@ public final class PetStore {
             state.sleeping = j.optBoolean("sleeping", false); state.sound = j.optBoolean("sound", true);
             state.adoptedAt = j.optLong("adoptedAt", 0); state.lastUpdated = j.optLong("lastUpdated", System.currentTimeMillis());
             for (Subject subject : Subject.values()) state.learned.put(subject, Math.max(0, j.optInt(subject.name(), 0)));
+            JSONArray gifts=j.optJSONArray("appliedGifts");if(gifts!=null)for(int i=0;i<gifts.length();i++)state.appliedGifts.add(gifts.getString(i));
         } catch (JSONException ignored) { /* A damaged save falls back to a safe new egg. */ }
         state.clamp(); return state;
     }
     public void save(PetState s) {
+        write(s,false);
+    }
+    public void saveNow(PetState s) { write(s,true); }
+    private void write(PetState s,boolean synchronous){
         try {
             JSONObject j = new JSONObject();
             j.put("version", 1); j.put("species", s.speciesId); j.put("name", s.name);
@@ -47,7 +53,9 @@ public final class PetStore {
             j.put("sleeping", s.sleeping); j.put("sound", s.sound); j.put("adoptedAt", s.adoptedAt);
             j.put("lastUpdated", s.lastUpdated);
             for (Subject subject : Subject.values()) j.put(subject.name(), s.learnedCount(subject));
-            preferences.edit().putString("pet." + s.speciesId, j.toString()).apply();
+            j.put("appliedGifts",new JSONArray(s.appliedGifts));
+            SharedPreferences.Editor edit=preferences.edit().putString("pet." + s.speciesId, j.toString());
+            if(synchronous){if(!edit.commit())throw new IllegalStateException("宠物保存失败，请检查存储空间");}else edit.apply();
         } catch (JSONException e) { throw new IllegalStateException("Cannot save pet", e); }
     }
 }
