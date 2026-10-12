@@ -8,8 +8,8 @@ android {
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = providers.gradleProperty("instrumentationRunner").orElse("com.string.aipet.FamilyInstrumentation").get()
-        versionCode = providers.gradleProperty("appVersionCode").orElse("3").get().toInt()
-        versionName = providers.gradleProperty("appVersionName").orElse("0.2.0").get()
+        versionCode = providers.gradleProperty("appVersionCode").orElse("4").get().toInt()
+        versionName = providers.gradleProperty("appVersionName").orElse("0.2.1").get()
         buildConfigField("String", "UPDATE_TEST_URL", "\"\"")
     }
     buildFeatures { buildConfig = true }

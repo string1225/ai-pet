@@ -34,9 +34,9 @@
 .\tools\build.ps1 -Install -Serial emulator-5556
 ```
 
-安装包输出：`artifacts/ai-pet-v0.2.0.apk`，固定签名的正式安装包。首次构建需要配置已有的签名密钥；[更新与签名说明](docs/manual-updates.md)介绍配置和发布方法。可用 `-Debug` 构建调试包。
+安装包输出：`artifacts/ai-pet-v0.2.1.apk`，固定签名的正式安装包。首次构建需要配置已有的签名密钥；[更新与签名说明](docs/manual-updates.md)介绍配置和发布方法。可用 `-Debug` 构建调试包。
 
-旧版 0.1.0 需先覆盖安装一次新版，保留存档；0.1.1 可在「设置 → 检查应用更新」下载升级。[下载 0.2.0](https://home.sunny-string.cn/github-release/string1225/ai-pet/download/v0.2.0/ai-pet.apk)。首次进入新版家长空间需设置 PIN。
+旧版 0.1.0 需先覆盖安装一次新版，保留存档；0.1.1 可在「设置 → 检查应用更新」下载升级；Android 10 的 0.1.1 / 0.2.0 签名读取有系统兼容问题，需先直接覆盖安装 0.2.1 一次，保留存档。[下载 0.2.1](https://home.sunny-string.cn/github-release/string1225/ai-pet/download/v0.2.1/ai-pet.apk)。首次进入新版家长空间需设置 PIN。
 
 ## 生活约定怎么结合养宠物
 

@@ -1,4 +1,4 @@
-param([switch]$Install, [switch]$Debug, [string]$Serial = 'emulator-5556', [int]$VersionCode = 3, [string]$VersionName = '0.2.0')
+param([switch]$Install, [switch]$Debug, [string]$Serial = 'emulator-5556', [int]$VersionCode = 4, [string]$VersionName = '0.2.1')
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectDirectory

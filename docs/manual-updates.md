@@ -2,7 +2,7 @@
 
 ## 家长操作
 
-「设置 → 检查应用更新」通过家长 PIN 后，点击「检查更新」。发现新版时显示版本说明，点击「下载新版」，校验通过后点击「安装新版」。检查、下载及安装均核对家长会话，最后由安卓系统显示覆盖安装确认。0.1.1 的旧入口仍使用原成人算术门槛，可以下载 0.2.0；升级后首次设置 PIN。
+「设置 → 检查应用更新」通过家长 PIN 后，点击「检查更新」。发现新版时显示版本说明，点击「下载新版」，校验通过后点击「安装新版」。检查、下载及安装均核对家长会话，最后由安卓系统显示覆盖安装确认。0.1.1 的旧入口仍使用原成人算术门槛，可以下载 0.2.1；升级后首次设置 PIN。
 
 第一次安装可能需要开启系统的「允许来自此来源的应用」。返回小屋后再次点击安装，不会自动安装。取消安装可以保留下载，下次打开更新窗口继续。关闭窗口可继续下载；杀进程中断的下载需要重新发起。下载完成的版本和校验信息保存在本机，重启后可以继续安装。
 
@@ -15,7 +15,7 @@ Android 10 测试模拟器在首次增加联网权限的覆盖安装后，曾返
 与 `star-collect` 共用 139.224.12.141 上的 `github-release.service`：
 
 - 版本：`https://home.sunny-string.cn/github-release/string1225/ai-pet/latest`
-- 当前 APK：`https://home.sunny-string.cn/github-release/string1225/ai-pet/download/v0.2.0/ai-pet.apk`
+- 当前 APK：`https://home.sunny-string.cn/github-release/string1225/ai-pet/download/v0.2.1/ai-pet.apk`
 - 回退版本：`https://api.github.com/repos/string1225/ai-pet/releases/latest`
 - 回退下载：该 Release 在 GitHub 上的固定 `ai-pet.apk` 地址。
 
@@ -27,7 +27,7 @@ Android 10 测试模拟器在首次增加联网权限的覆盖安装后，曾返
 
 ## 签名和构建
 
-0.2.0 沿用 0.1.0、0.1.1 的证书，SHA-256 指纹：
+0.2.1 沿用 0.1.0、0.1.1 的证书，SHA-256 指纹：
 
 `05893ba88f9c0d9a744e9867f11ab46b5c2389a981a1ec316bcd030212080667`
 
@@ -36,15 +36,15 @@ Android 10 测试模拟器在首次增加联网权限的覆盖安装后，曾返
 版本 code 必须递增，name 与标签一致。例如下次发布：
 
 ```powershell
-.\tools\build.ps1 -VersionCode 4 -VersionName 0.2.1
+.\tools\build.ps1 -VersionCode 5 -VersionName 0.2.2
 ```
 
-其他平台使用 `./gradlew assembleRelease -PappVersionCode=4 -PappVersionName=0.2.1`。
+其他平台使用 `./gradlew assembleRelease -PappVersionCode=5 -PappVersionName=0.2.2`。
 
 先完成测试并提交推送，再构建最终 APK，然后执行：
 
 ```powershell
-python tools\publish_release.py --tag v0.2.1 --apk artifacts\ai-pet-v0.2.1.apk --notes docs\release-v0.2.1.md
+python tools\publish_release.py --tag v0.2.2 --apk artifacts\ai-pet-v0.2.2.apk --notes docs\release-v0.2.2.md
 ```
 
 脚本使用 GitHub CLI 和已有的 GCM 凭据，或进程中的 `GH_TOKEN`，不会打印或保存 token。发布前要求工作区干净且远程 main 与本地 HEAD 一致；先创建草稿并上传 `ai-pet.apk`、`SHA256SUMS`，再正式发布为 latest。镜像元数据缓存最长 60 秒。
@@ -66,3 +66,11 @@ $env:AI_PET_UPDATE_TEST_URL='http://127.0.0.1:8765/latest'
 debug 只允许 `127.0.0.1`、`10.0.2.2` 的测试 HTTP，release 始终只允许 HTTPS。
 
 公网回归前确认模拟器已经连上 Wi-Fi。API 36 的默认开放网络可用 `adb shell cmd wifi connect-network AndroidWifi open` 连接；`adb shell cmd wifi status` 确认已连接后再运行 `--public`。
+
+## Android 10 签名兼容
+
+Android 10 的 APK 档案解析在只传 `GET_SIGNING_CERTIFICATES` 时会返回空签名；同时传 `GET_SIGNATURES` 后能返回同一证书。0.2.1 已同时请求两种标志，保留原有摘要、大小、版本、包名及证书验证。安装后的包查询仅使用新标志也正常，因此早期元数据检查没有覆盖这一差异。
+
+Android 10 上的 0.1.1 / 0.2.0 使用旧读取逻辑，无法通过应用内安装这一修复，需下载本页当前 APK，由安卓系统直接覆盖安装一次。已有宠物记录保留，此后可从修复后的应用内升级。
+
+`UpdateCompatibilityInstrumentation` 在真实系统中分别查询新、旧及组合标志，核对证书；可用 `-e apk /data/local/tmp/future.apk -e expectedVersion X.Y.Z` 让真实更新器校验一份已签名且 versionCode 更高的测试 APK。测试 APK 无需正式发布。

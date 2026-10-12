@@ -82,7 +82,9 @@ public final class ManualUpdater {
     }
     public void validate(File file, String expectedVersion) throws Exception {
         PackageManager pm = context.getPackageManager();
-        int flags = Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES;
+        // Android 10's archive parser only collects certificates when GET_SIGNATURES is
+        // also set; installed-package queries alone conceal this compatibility issue.
+        int flags = Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES | PackageManager.GET_SIGNATURES : PackageManager.GET_SIGNATURES;
         PackageInfo installed = pm.getPackageInfo(context.getPackageName(), flags), candidate = pm.getPackageArchiveInfo(file.getAbsolutePath(), flags);
         if (candidate == null || !context.getPackageName().equals(candidate.packageName)) throw new IOException("APK 包名不匹配");
         long current = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;

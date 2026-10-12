@@ -25,16 +25,26 @@ def main():
     parser.add_argument("--from-version", default="0.1.1")
     parser.add_argument("--to-version", default="0.2.0")
     parser.add_argument("--to-code", type=int, default=3)
+    parser.add_argument("--existing-family", action="store_true", help="Preserve and verify an already configured family ledger")
     args = parser.parse_args()
     t = Tablet(args.adb, args.serial)
     t.cmd("root"); t.cmd("wait-for-device"); t.restart()
     package = t.cmd("shell", "dumpsys", "package", APP)
     t.check("versionName=" + args.from_version in package, "Expected previous release installed before upgrade")
     before = save(t)
+    before_family = family(t) if args.existing_family else None
     open_update(t); t.tap("检查更新"); wait(t, "下载新版", timeout=90)
     t.check(args.to_version in str(ET.tostring(t.tree(), encoding="unicode")), "Production metadata offers the expected new version")
     t.shot("family-update-available")
-    t.tap("下载新版"); wait(t, "安装新版", timeout=120)
+    t.tap("下载新版")
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        labels = [n.get("text", "") for n in t.tree().iter("node")]
+        if "安装新版" in labels: break
+        if any("下载更新失败" in value for value in labels):
+            raise AssertionError("Production download failed: " + " | ".join(value for value in labels if "下载更新失败" in value))
+        time.sleep(.4)
+    else: raise AssertionError("Published APK download timed out")
     t.check(save(t) == before, "Production check and verified download preserve every existing pet save")
     t.tap("安装新版"); parent(t)
     nodes = list(t.tree().iter("node"))
@@ -68,13 +78,17 @@ def main():
             t.check(after.get(key) == value, "Existing save preference preserved: " + key)
     t.check("debuggable" not in package.lower(), "Published APK is a non-debuggable release")
     t.find("今日约定"); t.shot("family-api29-home")
-    t.tap("设置"); t.tap("语数英学习方案"); wait(t, "设置家长 PIN")
-    t.check(True, "Existing release user sets a parent PIN before editing the new learning plan")
+    t.tap("设置"); t.tap("语数英学习方案"); wait(t, "请家长帮忙" if args.existing_family else "设置家长 PIN")
+    t.check(True, "Parent PIN protects the upgraded learning plan")
     parent(t); wait(t, "语数英学习方案")
     state = family(t)
-    t.check(len(state["tasks"]) == 6 and not state["ledger"] and not state["gifts"], "Upgrade creates the six life tasks with an empty independent family wallet")
+    if before_family is not None:
+        keys=("childName","pinSalt","pinHash","tasks","completions","rules","ledger","learning","gifts","usage","billed")
+        t.check(all(state[k]==before_family[k] for k in keys), "Update preserves the family PIN, ledger, tasks, gifts, usage and curriculum")
+    else:
+        t.check(len(state["tasks"]) == 6 and not state["ledger"] and not state["gifts"], "Upgrade creates the six life tasks with an empty independent family wallet")
     l = state["learning"]
-    t.check([l[k] for k in ("chinesePercent", "mathPercent", "englishPercent", "pinyinPercent", "sessionLength")] == [40, 40, 20, 50, 10], "Android 10 preserves the expected default curriculum options")
+    t.check([l[k] for k in ("chinesePercent", "mathPercent", "englishPercent", "pinyinPercent", "sessionLength")] == [40, 40, 20, 50, 10], "Upgraded device preserves the expected default curriculum options")
     t.tap("回到小屋")
     (ROOT/"artifacts/family-results.json").write_text(json.dumps(t.checks, ensure_ascii=False, indent=2), encoding="utf-8")
     print("Published release upgrade checks:", len(t.checks), flush=True)
