@@ -22,6 +22,7 @@ import android.widget.Toast;
 import com.string.aipet.family.*;
 import com.string.aipet.learning.LearningSettings;
 import com.string.aipet.model.PetState;
+import com.string.aipet.model.RewardCatalog;
 import com.string.aipet.ui.Ui;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -32,7 +33,7 @@ import java.util.concurrent.Executors;
 
 /** The home notebook joins real-world habits, parent agreements and learning preferences. */
 public final class FamilyController {
-    public interface Host { PetState pet(); void deliverGifts(); void changed(); }
+    public interface Host { PetState pet(); void deliverGifts(); void changed(); void showShop(); }
     private final Activity activity;
     private final Host host;
     private final FamilyStore store;
@@ -99,19 +100,24 @@ public final class FamilyController {
         show("今日约定",p,false);
     }
     public void showGifts(){
-        LinearLayout p=form();note(p,"成长星星 "+snapshot().balance()+" ★\n用生活中的小努力，为伙伴准备一份礼物。基础喂食、休息和学习照常进行。");
+        LinearLayout p=form();note(p,"绿色成长星星 "+snapshot().balance()+" ★\n用生活中的小努力，为伙伴准备一份礼物。也可以前往装扮与成长，自由选择花金色或绿色星星。");
+        button(p,"装扮与成长 · 自选星星颜色",()->{dismiss();host.showShop();});
         button(p,"野餐点心礼包 · 3 ★ · 点心 +2",()->redeem("snacks"));
         button(p,"伙伴庆祝派对 · 5 ★ · 亲密度 +12",()->redeem("party"));
         button(p,"去完成今日约定",this::showTasks);show("心愿礼物",p,false);
     }
     private void redeem(String kind){
-        PetState pet=host.pet();if(!pet.hatched()){toast("先孵化小伙伴，再一起拆礼物吧");return;}
-        try{mutate(s->s.redeem(pet.speciesId,kind,System.currentTimeMillis()));host.deliverGifts();toast("礼物已送达，小伙伴谢谢你！");showGifts();}
+        try{buyGift(kind);toast("礼物已送达，小伙伴谢谢你！");showGifts();}
         catch(RuntimeException e){toast(e.getMessage()==null?"礼物暂时没有送达，重新打开小屋会继续送达":e.getMessage());}
+    }
+    public void buyGift(String kind){
+        PetState pet=host.pet();if(!pet.hatched())throw new IllegalArgumentException("先孵化小伙伴，再一起拆礼物吧");
+        RewardCatalog.checkAvailable(pet,RewardCatalog.get(kind));
+        mutate(s->s.redeem(pet.speciesId,kind,System.currentTimeMillis()));host.deliverGifts();
     }
     public void showLedger(){showLedgerDate(LocalDate.parse(snapshot().day(System.currentTimeMillis())));}
     private void showLedgerDate(LocalDate day){
-        FamilyState state=snapshot();LinearLayout p=form();note(p,"成长星星余额 "+state.balance()+" ★\n知识星星记学习；成长星星记生活约定和心愿礼物。用量结算可暂时欠星。");
+        FamilyState state=snapshot();LinearLayout p=form();note(p,"绿色成长星星余额 "+state.balance()+" ★\n金色来自答题，绿色来自生活约定，两种都能兑换礼物。累计学习成绩保留。用量结算可暂时欠绿色星星。");
         button(p,"前一天",()->showLedgerDate(day.minusDays(1)));if(day.isBefore(LocalDate.parse(state.day(System.currentTimeMillis()))))button(p,"后一天",()->showLedgerDate(day.plusDays(1)));
         String date=day.toString();boolean any=false;
         for(FamilyState.Entry e:state.ledger)if(e.day.equals(date)){note(p,e.title+"   "+(e.delta>0?"+":"")+e.delta+" ★");any=true;}

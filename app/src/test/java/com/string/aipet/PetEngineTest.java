@@ -60,4 +60,22 @@ public class PetEngineTest {
     }
     @Test(expected=IllegalArgumentException.class) public void duplicateSpeciesIsRejected(){PetRegistry.register(PetRegistry.get(PetRegistry.SNAKE));}
     @Test public void progressAndCareNeverGoNegative(){PetState s=new PetState();s.warmth=-2;s.fullness=300;s.snacks=-1;s.stars=-5;s.clamp();assertEquals(0,s.warmth);assertEquals(100,s.fullness);assertEquals(0,s.snacks);assertEquals(0,s.stars);}
+    @Test public void quizPreparesFoodWhenStockIsEmpty(){
+        PetState s=born();s.snacks=0;s.fullness=40;
+        assertTrue(new PetEngine(s).feedAfterQuiz());assertEquals(62,s.fullness);assertEquals(0,s.snacks);
+    }
+    @Test public void cleaningRestoresHygieneAndBond(){
+        PetState s=born();s.cleanliness=40;s.happiness=50;
+        assertTrue(new PetEngine(s).clean());assertEquals(65,s.cleanliness);assertEquals(53,s.happiness);assertEquals(2,s.affection);
+        s.cleanliness=99;assertTrue(new PetEngine(s).clean());assertEquals(100,s.cleanliness);
+    }
+    @Test public void eggsAndSleepingPetsCannotBeCleanedOrQuizFed(){
+        PetState s=new PetState();PetEngine e=new PetEngine(s);assertFalse(e.clean());assertFalse(e.feedAfterQuiz());
+        s.warmth=100;s.sleeping=true;s.snacks=0;assertFalse(e.clean());assertFalse(e.feedAfterQuiz());assertEquals(0,s.snacks);
+    }
+    @Test public void hygieneDecayIsBoundedAndIncludesSleepingTime(){
+        PetState s=born();s.cleanliness=80;s.lastUpdated=1000;s.sleeping=true;
+        new PetEngine(s).tick(1000+2*3600000L);assertEquals(76,s.cleanliness);
+        s.cleanliness=26;s.lastUpdated=1000;new PetEngine(s).tick(1000+100*3600000L);assertEquals(25,s.cleanliness);
+    }
 }

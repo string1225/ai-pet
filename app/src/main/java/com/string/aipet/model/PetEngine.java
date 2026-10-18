@@ -13,6 +13,7 @@ public final class PetEngine {
         if (state.hatched()) {
             state.fullness = Math.max(20, state.fullness - elapsed * 3);
             state.happiness = Math.max(25, state.happiness - elapsed * 2);
+            state.cleanliness = Math.max(25, state.cleanliness - elapsed * 2);
             state.energy = state.sleeping ? state.energy + elapsed * 12 : Math.max(20, state.energy - elapsed * 2);
         }
         state.lastUpdated = now;
@@ -26,6 +27,16 @@ public final class PetEngine {
     public boolean water() {
         if (!state.hatched() || state.sleeping) return false;
         state.happiness += 2; state.energy += 3; state.clamp(); return true;
+    }
+    /** A correct care answer can prepare a snack even when the basket is empty. */
+    public boolean feedAfterQuiz() {
+        if (!state.hatched() || state.sleeping || state.fullness >= 100) return false;
+        if (state.snacks < 1) state.snacks = 1;
+        return feed();
+    }
+    public boolean clean() {
+        if (!state.hatched() || state.sleeping || state.cleanliness >= 100) return false;
+        state.cleanliness += 25; state.happiness += 3; state.affection += 2; state.clamp(); return true;
     }
     public boolean pet() {
         if (!state.hatched() || state.sleeping) return false;

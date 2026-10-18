@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import com.string.aipet.learning.LearningSettings;
+import com.string.aipet.model.RewardCatalog;
 
 /** Pure domain model. Milliseconds are retained; only complete billing units cost stars. */
 public final class FamilyState {
@@ -34,11 +35,11 @@ public final class FamilyState {
         public Gift(String speciesId,String kind){this.speciesId=speciesId;this.kind=kind;}
     }
     public Gift redeem(String speciesId,String kind,long now){
-        int cost=kind.equals("snacks")?3:kind.equals("party")?5:0;
-        if(cost==0)throw new IllegalArgumentException("未知礼物");
+        RewardCatalog.Item item=RewardCatalog.get(kind);int cost=item.cost;
+        if(item.decoration)for(Gift pending:gifts)if(!pending.delivered&&pending.speciesId.equals(speciesId)&&pending.kind.equals(kind))throw new IllegalArgumentException("这件装扮正在送达，请稍等一下");
         if(balance()<cost)throw new IllegalArgumentException("成长星星还不够，完成生活中的小约定再来吧");
         Gift gift=new Gift(speciesId,kind);gifts.add(gift);
-        ledger.add(new Entry(day(now),kind.equals("snacks")?"兑换：野餐点心礼包":"兑换：伙伴庆祝派对","gift",-cost,now));return gift;
+        ledger.add(new Entry(day(now),"兑换："+item.title,"gift",-cost,now));return gift;
     }
 
     public static final class Task {

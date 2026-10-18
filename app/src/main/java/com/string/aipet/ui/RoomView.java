@@ -27,6 +27,7 @@ public final class RoomView extends View {
     private final Art art = new Art(null);
     private final Path roomClip = new Path();
     private final Bitmap scenery;
+    private String furnishingStyle="";
     private final Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private float scale = 1, offsetX, offsetY;
     private boolean running, playing;
@@ -44,13 +45,17 @@ public final class RoomView extends View {
         super(context); this.state = state; this.listener = listener;
         roomClip.addRoundRect(new RectF(0, 0, 1000, 600), 28, 28, Path.Direction.CW);
         scenery = Bitmap.createBitmap(1000, 600, Bitmap.Config.ARGB_8888);
-        drawFurnishings(new Canvas(scenery));
+        updateScenery();
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
-        setFocusable(true); setContentDescription("宠物的家，有书架、小床、点心碗和小球");
+        setFocusable(true); setContentDescription("宠物的家，有书架、小床、点心碗、小球和清洗盆");
         updateTargets();
     }
     public void setRunning(boolean value) { running = value; if (value) invalidate(); }
-    public void refresh() { updateTargets(); invalidate(); sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED); }
+    public void refresh() { updateScenery(); updateTargets(); invalidate(); sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED); }
+    private void updateScenery(){
+        String style=state.equippedDecorations.contains("cloud_rug")+":"+state.equippedDecorations.contains("star_garland")+":"+state.equippedDecorations.contains("flower_planter");
+        if(!style.equals(furnishingStyle)){furnishingStyle=style;drawFurnishings(new Canvas(scenery));}
+    }
     public void react(String text) {
         reactionUntil = SystemClock.uptimeMillis() + 1800; message(text);
     }
@@ -70,6 +75,7 @@ public final class RoomView extends View {
         float[] ball = BALLS[playing ? Math.min(ballRound, 2) : 0];
         targets.add(new Target("ball", playing ? "闪闪的小球，第" + (ballRound + 1) + "回合" : "玩具小球，陪玩", ball[0] - 37, ball[1] - 37, 74, 74));
         targets.add(new Target("plant", "窗边绿植，浇水", 842, 258, 99, 220));
+        targets.add(new Target("clean", "泡泡清洗盆，清洗", 862, 481, 115, 70));
     }
     private void activate(Target target) {
         if (playing && target.action.equals("ball")) {
@@ -106,6 +112,9 @@ public final class RoomView extends View {
         } else egg(c, a, time);
         float[] ball = BALLS[playing ? Math.min(ballRound, 2) : 0];
         ball(a, ball[0], ball[1], time);
+        if(reactionUntil>now&&message.startsWith("泡泡")){
+            for(int i=0;i<7;i++){float rise=(time*35+i*23)%120;a.circle(410+i*28,440-rise,8+i%3*3,0xA6E6F8F2);a.circle(407+i*28,437-rise,2,0xDDFFFFFF);}
+        }
         if (playing) {
             a.rect(293, 22, 419, 50, 25, 0xFFFDFBF3);
             a.text("找到小球 " + Math.min(ballRound + 1, 3) + " / 3 · 点点闪闪的小球", 502, 54, 19, 0xFF607256, true);
@@ -143,13 +152,26 @@ public final class RoomView extends View {
         Path shade = new Path(); shade.moveTo(708, 265); shade.lineTo(768, 265); shade.lineTo(782, 304); shade.lineTo(694, 304); shade.close();
         a.path(shade, 0xFFECC77D); a.oval(694, 299, 88, 14, 0xFFF8DFA9);
         // Rug with stitched border.
-        a.oval(305, 412, 381, 152, 0xFFBAC3A0); a.oval(319, 422, 353, 130, 0xFFE5E7CC);
+        boolean cloud=state.equippedDecorations.contains("cloud_rug");
+        a.oval(305, 412, 381, 152, cloud?0xFF8EBBC9:0xFFBAC3A0); a.oval(319, 422, 353, 130, cloud?0xFFD4EAF0:0xFFE5E7CC);
         for (int i = 0; i < 40; i++) {
             double angle = Math.PI * i / 20;
             float x = 496 + (float)Math.cos(angle) * 173, y = 487 + (float)Math.sin(angle) * 61;
-            a.circle(x, y, 1.9f, 0xFFB6BF9C);
+            a.circle(x, y, 1.9f, cloud?0xFF8DB4C4:0xFFB6BF9C);
         }
-        bed(a); bowl(a);
+        if(cloud)for(int i=0;i<3;i++){float x=373+i*105;a.oval(x,477+i%2*23,52,16,0xFFFCFEFF);a.circle(x+18,475+i%2*23,12,0xFFFCFEFF);a.circle(x+34,478+i%2*23,9,0xFFFCFEFF);}
+        bed(a); bowl(a);washBasin(a);
+        if(state.equippedDecorations.contains("star_garland")){
+            Path cord=new Path();cord.moveTo(278,43);cord.quadTo(483,105,688,43);a.stroke(cord,2,0xFFB79A5A);
+            for(int i=0;i<7;i++){float x=294+i*63;float y=52+(float)Math.sin(i*Math.PI/6)*28;a.line(x,y-3,x,y+10,2,0xFFB79A5A);a.star(x,y+19,10,0xFFE4BC5E);}
+        }
+        if(state.equippedDecorations.contains("flower_planter")){
+            for(int i=0;i<4;i++){float x=865+i*19,y=320+i%2*38;for(int petal=0;petal<5;petal++){double angle=petal*Math.PI*2/5;a.circle(x+(float)Math.cos(angle)*9,y+(float)Math.sin(angle)*9,7,0xFFE4A6B1);}a.circle(x,y,5,0xFFF8D888);}
+        }
+    }
+    private void washBasin(Art a){
+        a.oval(864,535,112,14,0x1F6C5844);a.rect(870,505,99,34,16,0xFF91B8BE);a.oval(868,496,103,25,0xFFCADFE0);a.oval(877,501,84,13,0xFF9BCDD3);
+        a.circle(894,493,9,0xFFF1FAF5);a.circle(909,487,12,0xFFF5FDFA);a.circle(927,492,10,0xFFF1FAF5);a.circle(941,498,7,0xFFF5FDFA);a.circle(939,477,4,0xFFEAF9F6);
     }
     private void window(Canvas c, Art a) {
         a.rect(346, 73, 281, 260, 120, 0xFFD3BE98); a.rect(355, 78, 263, 244, 116, 0xFFF8F2DF);

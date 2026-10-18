@@ -35,6 +35,7 @@ import com.string.aipet.model.PetEngine;
 import com.string.aipet.model.PetRegistry;
 import com.string.aipet.model.PetState;
 import com.string.aipet.model.PetStore;
+import com.string.aipet.model.RewardCatalog;
 import com.string.aipet.ui.Art;
 import com.string.aipet.ui.RoomView;
 import com.string.aipet.ui.SnakeRenderer;
@@ -51,14 +52,15 @@ public final class MainActivity extends Activity {
     private final QuestionBank bank=new QuestionBank();
     private RoomView room;
     private TextView petName, level, starCount, roomTitle, hint, tipTitle;
-    private final TextView[] statLabels=new TextView[3];
-    private final ProgressBar[] statBars=new ProgressBar[3];
+    private final TextView[] statLabels=new TextView[4];
+    private final ProgressBar[] statBars=new ProgressBar[4];
     private TextToSpeech voice;
     private boolean voiceReady;
     private Dialog activeDialog;
     private Lesson currentLesson;
     private UpdateController updates;
     private FamilyController family;
+    private RewardShop shop;
     private TextView growthBalance;
     private Button careButton;
     private View petAvatar;
@@ -72,7 +74,21 @@ public final class MainActivity extends Activity {
         super.onCreate(saved);
         updates=new UpdateController(this,action->showParentGate("安装新版需要家长确认，成长记录会保留。",action));
         store=new PetStore(this); state=store.load(); engine=new PetEngine(state); engine.tick(System.currentTimeMillis());
-        family=new FamilyController(this,new FamilyController.Host(){public PetState pet(){return state;}public void deliverGifts(){deliverPendingGifts();}public void changed(){refresh();}});
+        family=new FamilyController(this,new FamilyController.Host(){public PetState pet(){return state;}public void deliverGifts(){deliverPendingGifts();}public void changed(){refresh();}public void showShop(){MainActivity.this.showShop();}});
+        shop=new RewardShop(this,new RewardShop.Host(){
+            public PetState pet(){return state;}public int growthStars(){return family.snapshot().balance();}
+            public void buyKnowledge(String id){
+                RewardCatalog.redeemKnowledge(state,id);
+                try{store.saveNow(state);}catch(RuntimeException e){state=store.load();engine=new PetEngine(state);buildHome();throw e;}
+                refresh();room.react("礼物送到啦！");
+            }
+            public void buyGrowth(String id){family.buyGift(id);refresh();room.react("礼物送到啦！");}
+            public void toggleDecoration(String id){
+                if(!state.decorations.contains(id))return;
+                if(!state.equippedDecorations.remove(id))state.equippedDecorations.add(id);
+                try{store.saveNow(state);}catch(RuntimeException e){state=store.load();engine=new PetEngine(state);buildHome();throw e;}refresh();
+            }
+        });
         deliverPendingGifts();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         buildHome();
@@ -92,14 +108,19 @@ public final class MainActivity extends Activity {
             }
             return insets;
         });
-        LinearLayout header=Ui.row(this);root.addView(header,lp(-1,72));
+        boolean compactHeader=getResources().getConfiguration().screenWidthDp<1000;
+        LinearLayout headerArea=Ui.column(this);root.addView(headerArea,lp(-1,compactHeader?132:72));
+        LinearLayout header=Ui.row(this);headerArea.addView(header,lp(-1,72));
         Ui.Icon brand=new Ui.Icon(this,"leaf",0xFFE5EBD9);header.addView(brand,lp(48,48));
         LinearLayout heading=Ui.column(this);LinearLayout.LayoutParams headingLp=new LinearLayout.LayoutParams(0,-2,1);headingLp.setMargins(dp(14),0,0,0);header.addView(heading,headingLp);
         heading.addView(text("芽芽小屋",27,Ui.INK,true));Ui.gap(heading,5);heading.addView(text("把每一天，养成小小的快乐。",13,Ui.MUTED,false));
-        header.addView(Ui.button(this,"今日约定",0xFFEEEFE4,()->{dismissDialog();family.showTasks();}),lp(-2,48));
-        starCount=text("",16,0xFF9C7B42,true);starCount.setPadding(dp(17),dp(12),dp(17),dp(12));starCount.setBackground(Ui.shape(0xFFF1E8D3,20,this));header.addView(starCount,lp(-2,-2));
-        Button journal=Ui.button(this,"成长记录",0xFFEEEEE3,this::showJournal);LinearLayout.LayoutParams jp=lp(-2,48);jp.setMargins(dp(12),0,dp(8),0);header.addView(journal,jp);
-        header.addView(Ui.button(this,"设置",0xFFEEEEE3,this::showSettings),lp(-2,48));
+        LinearLayout controls=compactHeader?Ui.row(this):header;if(compactHeader){controls.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);headerArea.addView(controls,lp(-1,60));}
+        controls.addView(Ui.button(this,"今日约定",0xFFEEEFE4,()->{dismissDialog();family.showTasks();}),lp(-2,48));
+        LinearLayout wallets=Ui.column(this);wallets.setPadding(dp(12),dp(6),dp(12),dp(6));wallets.setBackground(Ui.shape(0xFFF1EEDC,18,this));wallets.setContentDescription("双色星星，打开兑换");wallets.setClickable(true);wallets.setFocusable(true);wallets.setOnClickListener(v->showShop());controls.addView(wallets,lp(160,56));
+        starCount=text("",14,Ui.KNOWLEDGE_GOLD,true);wallets.addView(starCount);
+        Ui.gap(wallets,5);growthBalance=text("",14,Ui.GROWTH_GREEN,true);wallets.addView(growthBalance);
+        Button journal=Ui.button(this,"成长记录",0xFFEEEEE3,this::showJournal);LinearLayout.LayoutParams jp=lp(-2,48);jp.setMargins(dp(12),0,dp(8),0);controls.addView(journal,jp);
+        controls.addView(Ui.button(this,"设置",0xFFEEEEE3,this::showSettings),lp(-2,48));
         LinearLayout body=wide?Ui.row(this):Ui.column(this);LinearLayout.LayoutParams bodyLp=new LinearLayout.LayoutParams(-1,0,1);bodyLp.setMargins(0,dp(12),0,dp(12));root.addView(body,bodyLp);
         LinearLayout sidebar=Ui.column(this);sidebar.setPadding(dp(20),dp(20),dp(20),dp(20));sidebar.setBackground(Ui.shape(0xFFEFF0E5,24,this));
         ScrollView sideScroll=new ScrollView(this);sideScroll.setFillViewport(true);sideScroll.setVerticalScrollBarEnabled(false);sideScroll.addView(sidebar);
@@ -111,26 +132,26 @@ public final class MainActivity extends Activity {
         petAvatar=avatar;sidebar.addView(avatar,lp(-1,108));
         petName=text("",23,Ui.INK,true);petName.setGravity(Gravity.CENTER);sidebar.addView(petName,lp(-1,-2));Ui.gap(sidebar,7);
         level=text("",12,0xFF829074,false);level.setGravity(Gravity.CENTER);sidebar.addView(level,lp(-1,-2));Ui.gap(sidebar,22);
-        String[] labels={"饱腹","心情","精力"};int[] colors={0xFFD5B176,0xFFB0BE91,0xFFA8BAD0};
-        for(int i=0;i<3;i++){
+        String[] labels={"饱腹","心情","精力","清洁"};int[] colors={0xFFD5B176,0xFFB0BE91,0xFFA8BAD0,0xFF9FC8C5};
+        for(int i=0;i<4;i++){
             statLabels[i]=text(labels[i],13,Ui.MUTED,false);sidebar.addView(statLabels[i],lp(-1,-2));Ui.gap(sidebar,7);
             ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);
             bar.setProgressTintList(android.content.res.ColorStateList.valueOf(colors[i]));bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFE0E3D6));
-            statBars[i]=bar;sidebar.addView(bar,lp(-1,8));Ui.gap(sidebar,16);
+            statBars[i]=bar;sidebar.addView(bar,lp(-1,8));Ui.gap(sidebar,12);
         }
         Ui.gap(sidebar,3);tipTitle=text("",14,Ui.INK,true);sidebar.addView(tipTitle);Ui.gap(sidebar,8);
         hint=text("",12,Ui.MUTED,false);hint.setLineSpacing(dp(4),1);sidebar.addView(hint);
-        Ui.gap(sidebar,16);growthBalance=text("",15,Ui.GREEN,true);sidebar.addView(growthBalance);Ui.gap(sidebar,8);
+        Ui.gap(sidebar,12);sidebar.addView(Ui.button(this,"装扮与成长",0xFFE2E9D7,this::showShop),lp(-1,48));Ui.gap(sidebar,8);
         sidebar.addView(Ui.button(this,"心愿礼物",0xFFE2E9D7,()->{dismissDialog();family.showGifts();}),lp(-1,48));
         if(!wide){
-            // A compact portrait profile keeps the whole pet and all three care values visible.
+            // A compact portrait profile keeps the whole pet and all four care values visible.
             body.removeView(sideScroll);LinearLayout compact=Ui.row(this);compact.setPadding(dp(14),dp(10),dp(14),dp(10));
             compact.setBackground(Ui.shape(0xFFEFF0E5,24,this));body.addView(compact,0,lp(-1,112));
             sidebar.removeView(avatar);compact.addView(avatar,lp(82,82));
-            LinearLayout identity=Ui.column(this);LinearLayout.LayoutParams identityLp=lp(190,-2);identityLp.setMargins(dp(12),0,dp(14),0);compact.addView(identity,identityLp);
+            LinearLayout identity=Ui.column(this);LinearLayout.LayoutParams identityLp=lp(getResources().getConfiguration().screenWidthDp<700?120:170,-2);identityLp.setMargins(dp(8),0,dp(8),0);compact.addView(identity,identityLp);
             sidebar.removeView(petName);sidebar.removeView(level);petName.setTextSize(21);petName.setGravity(Gravity.START);level.setTextSize(11);level.setGravity(Gravity.START);
             identity.addView(petName);Ui.gap(identity,8);identity.addView(level);
-            for(int i=0;i<3;i++){
+            for(int i=0;i<4;i++){
                 LinearLayout care=Ui.column(this);care.setGravity(Gravity.CENTER);LinearLayout.LayoutParams careLp=new LinearLayout.LayoutParams(0,-2,1);careLp.setMargins(dp(7),0,dp(7),0);compact.addView(care,careLp);
                 sidebar.removeView(statLabels[i]);sidebar.removeView(statBars[i]);statLabels[i].setGravity(Gravity.CENTER);statLabels[i].setLineSpacing(dp(5),1);
                 care.addView(statLabels[i],lp(-1,-2));Ui.gap(care,9);care.addView(statBars[i],lp(-1,8));
@@ -141,19 +162,21 @@ public final class MainActivity extends Activity {
         LinearLayout houseHeading=Ui.row(this);house.addView(houseHeading,lp(-1,52));
         LinearLayout houseWords=Ui.column(this);houseHeading.addView(houseWords,new LinearLayout.LayoutParams(0,-2,1));roomTitle=text("小蛇的家",21,Ui.INK,true);houseWords.addView(roomTitle);Ui.gap(houseWords,4);
         houseWords.addView(text("点一点小物件，发现新的快乐",12,Ui.MUTED,false));
+        if(!wide)houseHeading.addView(Ui.button(this,"装扮与成长",0xFFE2E9D7,this::showShop),lp(-2,46));
         houseHeading.addView(Ui.button(this,"宠物图鉴",0xFFEEEFE4,this::showPets),lp(-2,46));
         room=new RoomView(this,state,this::interact);room.setRunning(true);house.addView(room,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout dock=Ui.row(this);root.addView(dock,lp(-1,88));
-        careButton=Ui.button(this,"",Ui.GREEN,()->{if(!state.hatched())startIncubation();else showFood();});
+        careButton=Ui.button(this,"",Ui.GREEN,()->{if(!state.hatched())startIncubation();else showFood();});careButton.setTextSize(17);
         LinearLayout.LayoutParams first=new LinearLayout.LayoutParams(0,dp(72),1.2f);first.setMargins(0,0,dp(12),0);dock.addView(careButton,first);
-        actionTile(dock,"play","陪玩","追追小球",0xFFF0E2D9,()->guard(this::startPlay));
+        actionTile(dock,"play","陪玩","答题一起玩",0xFFF0E2D9,()->guard(this::startPlay));
+        actionTile(dock,"clean","清洗","答题洗香香",0xFFE1ECEA,()->guard(this::startClean));
         actionTile(dock,"book","学习","每天一点点",0xFFE6ECD9,()->guard(this::showLearning));
         actionTile(dock,"sleep","休息","做个甜甜的梦",0xFFE6E9EE,()->guard(this::toggleSleep));
         TextView footer=text("小小陪伴，大大成长",11,0xFFA1A391,false);footer.setGravity(Gravity.CENTER);root.addView(footer,lp(-1,21));
         setContentView(root);refresh();
     }
     private void actionTile(LinearLayout dock,String icon,String title,String subtitle,int color,Runnable action){
-        boolean small=getResources().getConfiguration().screenWidthDp<700;
+        boolean small=getResources().getConfiguration().screenWidthDp<1100;
         LinearLayout tile=Ui.row(this);tile.setPadding(dp(small?10:16),dp(8),dp(10),dp(8));tile.setBackground(Ui.shape(0xFFF0EFE7,20,this));tile.setClickable(true);tile.setFocusable(true);tile.setContentDescription(title);tile.setOnClickListener(v->action.run());
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(72),1);p.setMargins(0,0,dp(12),0);dock.addView(tile,p);
         tile.addView(new Ui.Icon(this,icon,color),lp(small?34:44,small?34:44));LinearLayout words=Ui.column(this);LinearLayout.LayoutParams wp=new LinearLayout.LayoutParams(0,-2,1);wp.setMargins(dp(small?8:12),0,0,0);tile.addView(words,wp);
@@ -162,12 +185,12 @@ public final class MainActivity extends Activity {
     private void refresh(){
         if(room==null)return;boolean born=state.hatched();if(petAvatar!=null)petAvatar.invalidate();
         petName.setText(born?state.name:"等待小生命");level.setText(born?petSpecies()+"  ·  Lv."+state.level()+"  ·  相伴第 "+state.days(System.currentTimeMillis())+" 天":petSpecies()+"蛋  ·  温暖 "+state.warmth+"%");
-        starCount.setText("★  "+state.stars+"  知识星");careButton.setText(born?"喂食  ·  点心 "+state.snacks:"一起孵化  ·  "+state.warmth+"%");
-        if(growthBalance!=null)growthBalance.setText("成长星星  "+family.snapshot().balance()+" ★");
-        roomTitle.setText(born?state.name+"的家":"小生命的新家");int[] values={state.fullness,state.happiness,state.energy};String[] labels={"饱腹","心情","精力"};
-        for(int i=0;i<3;i++){statLabels[i].setText(labels[i]+(wideHome?"                         ":"\n")+(born?values[i]:"—"));statBars[i].setProgress(born?values[i]:0);}
+        starCount.setText("★ "+state.stars+" 知识星");careButton.setText(born?"喂食 · 答题":"一起孵化  ·  "+state.warmth+"%");
+        if(growthBalance!=null)growthBalance.setText("★ "+family.snapshot().balance()+" 成长星");
+        roomTitle.setText(born?state.name+"的家":"小生命的新家");int[] values={state.fullness,state.happiness,state.energy,state.cleanliness};String[] labels={"饱腹","心情","精力","清洁"};
+        for(int i=0;i<4;i++){statLabels[i].setText(labels[i]+(wideHome?"                         ":"\n")+(born?values[i]:"—"));statBars[i].setProgress(born?values[i]:0);}
         tipTitle.setText(born?(state.sleeping?"嘘，"+state.name+"睡着啦":"今天的小发现"):"第一份陪伴");
-        hint.setText(born?(state.sleeping?"点小床叫醒它。休息时，精力会慢慢恢复。":"已经收集 "+state.totalLearned()+" 个知识星星。\n完成一轮学习，还能获得 2 份点心。"):
+        hint.setText(born?(state.sleeping?"点小床叫醒它。休息时，精力会慢慢恢复。":"答题喂食、陪玩、洗香香。\n两种星星，都能换礼物！"):
                 "用 4 个小知识给蛋加温，认识你的第一位小伙伴。");room.refresh();
     }
     private void save(){store.save(state);refresh();}
@@ -188,7 +211,7 @@ public final class MainActivity extends Activity {
             case "learn":guard(this::showLearning);break;
             case "sleep":guard(this::toggleSleep);break;
             case "ball":guard(this::startPlay);break;
-            case "play_complete":startLesson(bank.mixed(1,family.learning()),"小球追到啦，一起学一个小知识",()->{engine.play();save();room.react("玩得好开心！心情 +18");});break;
+            case "clean":guard(this::startClean);break;
             case "plant":room.react("给绿植浇一点水，小屋也开心了");break;
         }
     }
@@ -216,20 +239,30 @@ public final class MainActivity extends Activity {
     }
     private void showFood(){
         if(!awake())return;room.cancelPlay();LinearLayout p=Ui.column(this);
-        addChoice(p,"浆果点心","消耗 1 份点心 · 饱腹 +22",0xFFF2E3D8,()->feed("浆果点心"));
-        addChoice(p,"小虫饼干","消耗 1 份点心 · 饱腹 +22",0xFFEBECD8,()->feed("小虫饼干"));
-        addChoice(p,"喝点清凉水","不用点心 · 精力 +3",0xFFE2EDEF,()->{engine.water();save();dismissDialog();room.react("咕嘟咕嘟，好清凉！");});
+        int gain=PetRegistry.get(state.speciesId).foodGain;
+        addChoice(p,"浆果点心","答对 1 题 · 饱腹 +"+gain,0xFFF2E3D8,()->feed("浆果点心"));
+        addChoice(p,"小虫饼干","答对 1 题 · 饱腹 +"+gain,0xFFEBECD8,()->feed("小虫饼干"));
+        addChoice(p,"喝点清凉水","答对 1 题 · 精力 +3",0xFFE2EDEF,()->startCare("一起喝水",()->{if(engine.water())room.react("咕嘟咕嘟，好清凉！精力 +3");save();}));
         addChoice(p,"做练习赚点心","按家长学习方案出 3 题 · 完成后获得 2 份点心",0xFFF2EBD9,()->startLesson(bank.mixed(3,family.learning()),"小小厨房 · 用知识准备点心",null));
-        sheet("今天吃点什么？","点心篮里还有 "+state.snacks+" 份。小伙伴喜欢童话里的点心。",p);
+        sheet("今天吃点什么？","答题准备美味点心。篮里还有 "+state.snacks+" 份，用完也可以答题现做。",p);
     }
     private void feed(String food){
         if(state.fullness>=100){dismissDialog();room.message("已经吃饱啦，陪我玩一会儿吧");return;}
-        if(state.snacks<1){dismissDialog();startLesson(bank.mixed(3,family.learning()),"点心用完啦，一起赚两份",null);return;}
-        if(engine.feed()){save();dismissDialog();room.react("啊呜，"+food+"真好吃！");}
+        startCare("答题喂食 · "+food,()->{if(engine.feedAfterQuiz())room.react("啊呜，"+food+"真好吃！");save();});
     }
     private void startPlay(){
         if(!awake())return;if(state.energy<10){room.message("有点累啦，先去小床休息一下吧");return;}
-        dismissDialog();room.startPlay();room.message("点点闪闪的小球，追到 3 次吧！");
+        startCare("答题陪玩 · 一起追小球",()->{if(engine.play())room.react("玩得好开心！心情 +"+PetRegistry.get(state.speciesId).playGain);save();});
+    }
+    private void startClean(){
+        if(!awake())return;if(state.cleanliness>=100){room.message("已经洗得干干净净啦！");return;}
+        startCare("答题清洗 · 洗香香",()->{if(engine.clean())room.react("泡泡香香，清洁 +25！");save();});
+    }
+    private void startCare(String title,Runnable reward){
+        if(!awake())return;startLesson(bank.mixed(1,family.learning()),title,reward,false);
+    }
+    private void showShop(){
+        dismissDialog();family.dismiss();room.cancelPlay();shop.show();
     }
     private void toggleSleep(){
         room.cancelPlay();if(state.sleeping){engine.wake(System.currentTimeMillis());save();room.react("睡醒啦，新的一天也要开心！");}
@@ -249,11 +282,14 @@ public final class MainActivity extends Activity {
         choice.addView(text(title,19,Ui.INK,true));Ui.gap(choice,5);choice.addView(text(subtitle,13,Ui.MUTED,false));p.addView(choice,lp(-1,-2));Ui.gap(p,10);
     }
     private final class Lesson {
-        final List<Question> questions;final String title;final Runnable after;int index;boolean answered;int earned;
-        Lesson(List<Question> q,String title,Runnable after){questions=new ArrayList<>(q);this.title=title;this.after=after;}
+        final List<Question> questions;final String title;final Runnable after;final boolean lessonBonus;int index;boolean answered,finished;int earned;
+        Lesson(List<Question> q,String title,Runnable after,boolean lessonBonus){questions=new ArrayList<>(q);this.title=title;this.after=after;this.lessonBonus=lessonBonus;}
     }
     private void startLesson(List<Question> questions,String title,Runnable after){
-        if(questions.isEmpty())return;room.cancelPlay();currentLesson=new Lesson(questions,title,after);showQuestion(currentLesson);
+        startLesson(questions,title,after,true);
+    }
+    private void startLesson(List<Question> questions,String title,Runnable after,boolean lessonBonus){
+        if(questions.isEmpty())return;room.cancelPlay();currentLesson=new Lesson(questions,title,after,lessonBonus);showQuestion(currentLesson);
     }
     private void showQuestion(Lesson lesson){
         Question q=lesson.questions.get(lesson.index);LinearLayout p=Ui.column(this);
@@ -263,19 +299,19 @@ public final class MainActivity extends Activity {
         TextView cue=text(q.cue,17,Ui.MUTED,false);cue.setGravity(Gravity.CENTER);p.addView(cue,lp(-1,-2));Ui.gap(p,20);
         List<Button> answers=new ArrayList<>();TextView feedback=text("点一点你的答案",16,Ui.MUTED,false);feedback.setGravity(Gravity.CENTER);feedback.setMinHeight(dp(42));
         Button next=Ui.button(this,lesson.index==lesson.questions.size()-1?"完成啦":"下一题",Ui.GREEN,()->{
-            if(!lesson.answered)return;
+            if(!lesson.answered||lesson.finished||currentLesson!=lesson)return;
             if(++lesson.index<lesson.questions.size()){lesson.answered=false;showQuestion(lesson);}
-            else{engine.finishLesson();save();dismissDialog();currentLesson=null;if(lesson.after!=null)lesson.after.run();else showLessonResult(lesson);}
+            else{lesson.finished=true;if(lesson.lessonBonus)engine.finishLesson();save();dismissDialog();currentLesson=null;if(lesson.after!=null)lesson.after.run();else showLessonResult(lesson);}
         });next.setVisibility(View.INVISIBLE);
         for(int row=0;row<2;row++){
             LinearLayout options=Ui.row(this);p.addView(options,lp(-1,68));
             for(int col=0;col<2;col++){
                 String option=q.options.get(row*2+col);Button answer=Ui.button(this,option,0xFFEEEEE3,()->{});answer.setTextSize(q.subject==Subject.LITERACY?29:24);
                 answer.setOnClickListener(v->{
-                    if(lesson.answered)return;
+                    if(lesson.answered||lesson.finished||currentLesson!=lesson)return;
                     if(q.matches(option)){
                         lesson.answered=true;lesson.earned++;engine.correct(q.subject,System.currentTimeMillis());save();
-                        answer.setBackground(Ui.shape(0xFFDCE9D0,16,this));feedback.setText("答对啦！你收到了 1 颗星星 ★");feedback.setTextColor(Ui.GREEN);
+                        answer.setBackground(Ui.shape(0xFFDCE9D0,16,this));feedback.setText("答对啦！你收到了 1 颗金色知识星星 ★");feedback.setTextColor(Ui.KNOWLEDGE_GOLD);
                         for(Button other:answers)other.setEnabled(false);next.setVisibility(View.VISIBLE);speak(q,false);
                     }else{answer.setBackground(Ui.shape(0xFFF2E3D4,16,this));feedback.setText("再试一次。"+q.explanation);feedback.setTextColor(0xFF997A55);}
                 });answers.add(answer);LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(0,dp(58),1);op.setMargins(col==0?0:dp(10),0,0,0);options.addView(answer,op);
@@ -284,7 +320,7 @@ public final class MainActivity extends Activity {
         Ui.gap(p,8);p.addView(feedback,lp(-1,-2));Ui.gap(p,12);p.addView(next,lp(-1,52));
         if(lesson.answered){
             for(Button answer:answers){answer.setEnabled(false);if(q.matches(answer.getText().toString()))answer.setBackground(Ui.shape(0xFFDCE9D0,16,this));}
-            next.setVisibility(View.VISIBLE);feedback.setText("答对啦！你收到了 1 颗星星 ★");feedback.setTextColor(Ui.GREEN);
+            next.setVisibility(View.VISIBLE);feedback.setText("答对啦！你收到了 1 颗金色知识星星 ★");feedback.setTextColor(Ui.KNOWLEDGE_GOLD);
         }
         sheet(lesson.title,"轻轻想一想，"+state.name+"会陪着你。",p);currentLesson=lesson;
     }
@@ -302,9 +338,10 @@ public final class MainActivity extends Activity {
     }
     private void showJournal(){
         LinearLayout p=Ui.column(this);TextView overview=text("相伴 "+state.days(System.currentTimeMillis())+" 天   ·   Lv."+state.level()+"   ·   完成 "+state.completedLessons+" 轮学习",17,Ui.INK,true);p.addView(overview);Ui.gap(p,20);
+        addChoice(p,"装扮与成长","累计答对 "+state.totalLearned()+" 题 · 可用金色知识星 "+state.stars+" · 绿色成长星 "+family.snapshot().balance(),0xFFF2EBD9,this::showShop);
         addChoice(p,"生活约定与成长账本","成长星星 "+family.snapshot().balance()+" ★ · 任务奖励、用量结算和心愿礼物",0xFFF2EBD9,()->{dismissDialog();family.showLedger();});
         for(Subject s:Subject.values()){TextView line=text(s.title+"                         "+state.learnedCount(s)+" 颗星星",18,Ui.INK,false);line.setPadding(dp(16),dp(16),dp(16),dp(16));line.setBackground(Ui.shape(blend(s.color),16,this));p.addView(line,lp(-1,-2));Ui.gap(p,10);}
-        sheet("我们的成长记录","星星记录每一次答对，亲密度来自照顾与陪伴。",p);
+        sheet("我们的成长记录","兑换会花费可用星星；下面的累计学习成绩一直保留。",p);
     }
     private void showPets(){
         LinearLayout p=Ui.column(this);for(PetDefinition pet:PetRegistry.all())addChoice(p,pet.species+" · "+pet.defaultName,pet.introduction,0xFFE8EDD9,()->{
@@ -338,10 +375,10 @@ public final class MainActivity extends Activity {
         if(Build.VERSION.SDK_INT>=33){if(modernBack==null)modernBack=()->handleBack();getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,modernBack);}}
     @Override protected void onPause(){super.onPause();if(family!=null)family.onPause();if(updates!=null)updates.onPause();clock.removeCallbacks(updateClock);if(room!=null)room.setRunning(false);if(store!=null)store.save(state);if(voice!=null)voice.stop();
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(modernBack);}
-    @Override protected void onDestroy(){clock.removeCallbacks(updateClock);if(family!=null)family.destroy();if(updates!=null)updates.destroy();dismissDialog();if(voice!=null)voice.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){clock.removeCallbacks(updateClock);if(family!=null)family.destroy();if(updates!=null)updates.destroy();if(shop!=null)shop.dismiss();dismissDialog();if(voice!=null)voice.shutdown();super.onDestroy();}
     @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(room!=null)room.setRunning(focused);}
     @Override protected void onActivityResult(int request,int result,android.content.Intent data){super.onActivityResult(request,result,data);if(family!=null)family.activityResult(request,result,data);}
-    @Override public void onConfigurationChanged(Configuration config){super.onConfigurationChanged(config);Lesson pending=currentLesson;if(room!=null)room.setRunning(false);dismissDialog();buildHome();if(family!=null)family.resize();if(pending!=null && pending.index<pending.questions.size())showQuestion(pending);}
+    @Override public void onConfigurationChanged(Configuration config){super.onConfigurationChanged(config);Lesson pending=currentLesson;if(room!=null)room.setRunning(false);dismissDialog();buildHome();if(family!=null)family.resize();if(shop!=null)shop.resize();if(pending!=null && pending.index<pending.questions.size())showQuestion(pending);}
     private void handleBack(){if(room.isPlaying()){room.cancelPlay();room.message("小球先休息一会儿");}else finish();}
     @Override public boolean onKeyUp(int key,android.view.KeyEvent event){if(Build.VERSION.SDK_INT<33 && key==android.view.KeyEvent.KEYCODE_BACK){handleBack();return true;}return super.onKeyUp(key,event);}
 }

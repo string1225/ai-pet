@@ -13,6 +13,7 @@ import android.widget.TextView;
 
 public final class Ui {
     public static final int INK=0xFF3D4F40, MUTED=0xFF85897C, GREEN=0xFF6F8A65, BG=0xFFF8F6EF;
+    public static final int KNOWLEDGE_GOLD=0xFF926819, GROWTH_GREEN=0xFF3E754B;
     private Ui() {}
     public static int dp(Context context, float value) { return Math.round(value*context.getResources().getDisplayMetrics().density); }
     public static GradientDrawable shape(int color, float radius, Context c) {
@@ -44,6 +45,7 @@ public final class Ui {
             switch(kind){
                 case "food": a.rect(12,23,24,12,6,ink);a.oval(12,19,24,10,0xFFF5F1DC);a.circle(18,22,3,0xFFD7A46A);a.circle(26,21,3,0xFF93A878);a.circle(30,23,3,0xFFD2AF64); break;
                 case "play":a.circle(24,24,12,0xFFC78872);a.line(13,23,35,23,3,0xFFF8E2BF);a.line(23,13,23,35,3,0xFFF8E2BF);break;
+                case "clean":a.rect(11,25,27,12,7,0xFF86B7BA);a.circle(19,22,6,0xFFEAF9F6);a.circle(29,19,8,0xFFF5FFFD);a.circle(17,12,3,0xFFF5FFFD);break;
                 case "book":a.rect(12,12,25,27,4,ink);a.rect(15,12,3,27,1,0xFFD5DBC2);a.line(22,20,31,20,2,0xFFF6F3DC);a.line(22,25,29,25,2,0xFFF6F3DC);break;
                 case "sleep":a.circle(24,23,13,ink);a.circle(30,17,12,color);a.star(34,32,4,0xFFD4AE6E);break;
                 case "egg":a.oval(14,9,22,31,0xFFF7EDD1);a.oval(18,19,5,7,0xFF9CAF7D);a.oval(26,28,5,7,0xFFBBC89F);break;
