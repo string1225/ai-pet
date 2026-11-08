@@ -12,6 +12,9 @@ artifacts/update-results.json
 artifacts/family-results.json
 artifacts/pre-family-save.json
 artifacts/SHA256SUMS
+artifacts/update.json
+artifacts/feedback-*.json
+backend/__pycache__/
 artifacts/*.keystore
 artifacts/*window.xml
 artifacts/debug-*.png

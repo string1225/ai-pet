@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.IntConsumer;
 
-/** No automatic network activity. Every check/download is initiated by a parent action. */
+/** Checks/downloads run manually or after a parent's explicit automatic-update opt-in. */
 public final class ManualUpdater {
     private final Context context;
     public ManualUpdater(Context context) { this.context = context.getApplicationContext(); }
@@ -52,7 +52,7 @@ public final class ManualUpdater {
         File directory = new File(context.getFilesDir(), "updates");
         if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("无法创建更新目录");
         File target = new File(directory, "update.apk"), part = new File(directory, "download.part.apk");
-        List<String> urls = testMode() ? java.util.Arrays.asList(BuildConfig.UPDATE_TEST_URL.replaceFirst("/latest$", "/download/" + release.tag + "/ai-pet.apk")) : java.util.Arrays.asList(release.mirrorUrl(), release.asset.url);
+        List<String> urls = testMode() ? java.util.Arrays.asList(BuildConfig.UPDATE_TEST_URL.replaceFirst("/latest$", "/download/" + release.tag + "/ai-pet.apk")) : java.util.Arrays.asList(release.proxyUrl(), release.mirrorUrl(), release.asset.url);
         Exception failure = null;
         for (String url : urls) {
             try {

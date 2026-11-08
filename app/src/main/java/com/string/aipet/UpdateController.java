@@ -10,6 +10,8 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.widget.CheckBox;
+import android.widget.Toast;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
@@ -46,6 +48,19 @@ public final class UpdateController {
                 .setNeutralButton("重新检查", null)
                 .setNegativeButton("关闭", null).create();
         dialog.setOnDismissListener(d -> dialog = null);
+        CheckBox automatic = new CheckBox(activity);
+        automatic.setText("自动检查并下载新版（安装需家长确认）");
+        automatic.setChecked(preferences.getBoolean("automatic", false));
+        automatic.setPadding(24, 12, 24, 12);
+        automatic.setOnClickListener(v -> {
+            boolean enabled = automatic.isChecked();
+            automatic.setChecked(preferences.getBoolean("automatic", false));
+            parentGate.accept(() -> {
+                preferences.edit().putBoolean("automatic", enabled).apply(); automatic.setChecked(enabled);
+                if (enabled) checkAutomatically();
+            });
+        });
+        dialog.setView(automatic);
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             if (busy) return;
@@ -66,7 +81,7 @@ public final class UpdateController {
             if (!ready.isEmpty() && apk().isFile() && ReleasePolicy.Version.parse(ready).compareTo(ReleasePolicy.Version.parse(BuildConfig.VERSION_NAME)) > 0) return ready;
         } catch (IllegalArgumentException ignored) { /* Discard stale metadata. */ }
         if (!ready.isEmpty()) {
-            preferences.edit().clear().apply();
+            clearReady();
             // Only this private update file is removed; pet records are independent.
             apk().delete();
         }
@@ -84,7 +99,8 @@ public final class UpdateController {
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setEnabled(!busy);
     }
     private void post(Runnable action) { main.post(() -> { if (!destroyed) action.run(); }); }
-    private void check() {
+    private void check() { check(false); }
+    private void check(boolean automatic) {
         if (busy) return;
         busy = true; message = "正在检查更新…"; refresh();
         worker.execute(() -> {
@@ -96,6 +112,7 @@ public final class UpdateController {
                             ? "发现新版 " + result.version + "\n\n" + (result.notes.isEmpty() ? "本次更新没有附加说明。" : result.notes)
                             : "当前已经是最新版本。";
                     refresh();
+                    if (automatic && resumed && preferences.getBoolean("automatic", false) && hasNewVersion() && readyVersion().isEmpty()) download();
                 });
             } catch (Exception e) { failure("检查更新失败", e); }
         });
@@ -112,7 +129,8 @@ public final class UpdateController {
                 }));
                 if (!preferences.edit().putString("readyVersion", selected.version.toString())
                         .putString("sha256", selected.asset.digest.substring(7)).putLong("size", selected.asset.size).commit()) throw new IOException("无法保存下载记录，请重试");
-                post(() -> { busy = false; message = "下载完成，文件和签名校验通过。\n覆盖安装会保留宠物和学习记录。"; refresh(); });
+                post(() -> { busy = false; message = "下载完成，文件和签名校验通过。\n覆盖安装会保留宠物和学习记录。"; refresh();
+                    if (resumed && dialog == null) Toast.makeText(activity, "新版已下载，家长可在设置中确认安装。", Toast.LENGTH_LONG).show(); });
             } catch (Exception e) { failure("下载失败，请重试", e); }
         });
     }
@@ -148,7 +166,7 @@ public final class UpdateController {
                     });
                 });
             } catch (Exception e) {
-                preferences.edit().clear().commit();
+                clearReady();
                 apk().delete();
                 failure("安装包不可用，请重新检查更新", e);
             }
@@ -158,10 +176,18 @@ public final class UpdateController {
         post(() -> { busy = false; message = title + "\n" + (error.getMessage() == null ? "请检查网络后重试。" : error.getMessage()); refresh(); });
     }
     private void dismiss() { if (dialog != null) dialog.dismiss(); }
+    private void clearReady() { preferences.edit().remove("readyVersion").remove("sha256").remove("size").apply(); }
+    private void checkAutomatically() {
+        long now = System.currentTimeMillis();
+        if (ReleasePolicy.shouldAutoCheck(preferences.getBoolean("automatic", false), busy, now, preferences.getLong("lastAutoCheck", 0))) {
+            preferences.edit().putLong("lastAutoCheck", now).apply(); check(true);
+        }
+    }
     public void onResume() {
         resumed = true;
         if (permissionPending) { permissionPending = false; show(); }
         else refresh();
+        checkAutomatically();
     }
     public void onPause() { resumed = false; }
     public void destroy() { destroyed = true; worker.shutdownNow(); main.removeCallbacksAndMessages(null); dismiss(); }

@@ -21,4 +21,20 @@ public class ReleasePolicyTest {
     @Test(expected = IllegalArgumentException.class) public void emptyApkRejected() { ReleasePolicy.select("v0.1.2", false, false, "", List.of(asset(url(), digest(), 0))); }
     @Test public void mirrorUsesFixedRepositoryAndPath() { assertEquals(ReleasePolicy.MIRROR + "/download/v0.1.2/ai-pet.apk", ReleasePolicy.select("v0.1.2", false, false, "notes", List.of(asset(url(), digest(), 12))).mirrorUrl()); }
     @Test public void redirectRequiresHttpsAndKnownHosts() { assertFalse(ReleasePolicy.allowedRedirect("https://github.com.evil.test/update.apk")); assertFalse(ReleasePolicy.allowedRedirect("http://github.com/a.apk")); assertFalse(ReleasePolicy.allowedRedirect("https://token@github.com/a.apk")); assertFalse(ReleasePolicy.allowedRedirect("https://github.com:444/a.apk")); assertTrue(ReleasePolicy.allowedRedirect("https://release-assets.githubusercontent.com/a.apk")); }
+    @Test public void proxyIsRestrictedToOurImmutableReleaseAssets() {
+        String root = "https://gh-proxy.com/https://github.com/string1225/ai-pet/releases/download/";
+        assertTrue(ReleasePolicy.allowedRedirect(root + "v0.4.0/ai-pet.apk"));
+        assertFalse(ReleasePolicy.allowedRedirect(root.replace("string1225", "someone") + "v0.4.0/ai-pet.apk"));
+        assertFalse(ReleasePolicy.allowedRedirect(root + "v0.4.0/../../secret"));
+        assertFalse(ReleasePolicy.allowedRedirect(root + "v0.4.0/ai-pet.apk?url=https://evil.test"));
+        assertFalse(ReleasePolicy.allowedRedirect(root.replace("https://gh-proxy.com/", "https://key@gh-proxy.com/") + "v0.4.0/ai-pet.apk"));
+    }
+    @Test public void automaticChecksRequireOptInAndAreThrottled() {
+        long now = 100_000_000L;
+        assertFalse(ReleasePolicy.shouldAutoCheck(false, false, now, 0));
+        assertFalse(ReleasePolicy.shouldAutoCheck(true, true, now, 0));
+        assertFalse(ReleasePolicy.shouldAutoCheck(true, false, now, now - 1000));
+        assertTrue(ReleasePolicy.shouldAutoCheck(true, false, now, now - 6 * 60 * 60 * 1000L));
+        assertTrue(ReleasePolicy.shouldAutoCheck(true, false, now, now + 1));
+    }
 }

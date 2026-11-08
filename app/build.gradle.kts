@@ -8,9 +8,10 @@ android {
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = providers.gradleProperty("instrumentationRunner").orElse("com.string.aipet.FamilyInstrumentation").get()
-        versionCode = providers.gradleProperty("appVersionCode").orElse("5").get().toInt()
-        versionName = providers.gradleProperty("appVersionName").orElse("0.3.0").get()
+        versionCode = providers.gradleProperty("appVersionCode").orElse("6").get().toInt()
+        versionName = providers.gradleProperty("appVersionName").orElse("0.4.0").get()
         buildConfigField("String", "UPDATE_TEST_URL", "\"\"")
+        buildConfigField("String", "FEEDBACK_TEST_URL", "\"\"")
     }
     buildFeatures { buildConfig = true }
     signingConfigs {
@@ -28,6 +29,9 @@ android {
             val fixture = providers.environmentVariable("AI_PET_UPDATE_TEST_URL").orElse("").get()
             require(fixture.isEmpty() || fixture.matches(Regex("http://(127\\.0\\.0\\.1|10\\.0\\.2\\.2):[0-9]+/latest"))) { "Update fixture must be an emulator loopback URL" }
             buildConfigField("String", "UPDATE_TEST_URL", "\"$fixture\"")
+            val feedbackFixture = providers.environmentVariable("AI_PET_FEEDBACK_TEST_URL").orElse("").get()
+            require(feedbackFixture.isEmpty() || feedbackFixture.matches(Regex("http://(127\\.0\\.0\\.1|10\\.0\\.2\\.2):[0-9]+/ai-pet-feedback"))) { "Feedback fixture must be an emulator loopback URL" }
+            buildConfigField("String", "FEEDBACK_TEST_URL", "\"$feedbackFixture\"")
         }
     }
     compileOptions {

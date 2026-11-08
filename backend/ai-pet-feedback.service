@@ -1,0 +1,24 @@
+[Unit]
+Description=AI Pet household feedback planner and approval service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=junte
+Group=junte
+WorkingDirectory=/home/junte/ai-pet-feedback
+ExecStart=/usr/bin/python3 -m backend.feedback_server --config /home/junte/.config/ai-pet-feedback/config.json
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=240
+UMask=0077
+Environment=PYTHONUNBUFFERED=1
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/junte/.local/share/ai-pet-feedback /home/junte/.codex
+
+[Install]
+WantedBy=multi-user.target

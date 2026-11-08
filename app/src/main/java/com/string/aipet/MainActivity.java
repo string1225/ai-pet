@@ -60,6 +60,7 @@ public final class MainActivity extends Activity {
     private Lesson currentLesson;
     private UpdateController updates;
     private FamilyController family;
+    private FeedbackController feedback;
     private RewardShop shop;
     private TextView growthBalance;
     private Button careButton;
@@ -75,6 +76,7 @@ public final class MainActivity extends Activity {
         updates=new UpdateController(this,action->showParentGate("安装新版需要家长确认，成长记录会保留。",action));
         store=new PetStore(this); state=store.load(); engine=new PetEngine(state); engine.tick(System.currentTimeMillis());
         family=new FamilyController(this,new FamilyController.Host(){public PetState pet(){return state;}public void deliverGifts(){deliverPendingGifts();}public void changed(){refresh();}public void showShop(){MainActivity.this.showShop();}});
+        feedback=new FeedbackController(this, action->showParentGate("意见和方案执行需要家长确认。",action), updates::show);
         shop=new RewardShop(this,new RewardShop.Host(){
             public PetState pet(){return state;}public int growthStars(){return family.snapshot().balance();}
             public void buyKnowledge(String id){
@@ -355,9 +357,10 @@ public final class MainActivity extends Activity {
         addChoice(p,state.sound?"关闭朗读":"打开朗读","中文和英文朗读使用设备已有的声音",0xFFE6EAF1,()->{state.sound=!state.sound;save();showSettings();});
         addChoice(p,"家长空间","确认生活任务、设置奖励和娱乐 App 约定",0xFFE8EDD9,()->{dismissDialog();family.showParent();});
         addChoice(p,"语数英学习方案","分别设置难度、比例和综合练习题数",0xFFE6EAF1,()->{dismissDialog();family.showLearningSettings();});
-        addChoice(p,"检查应用更新","家长手动检查、下载和安装新版",0xFFE8EDD9,()->showParentGate("请家长帮忙检查应用更新。",updates::show));
+        addChoice(p,"意见与改进","提出建议、查看方案，由家长确认执行",0xFFE6EAF1,()->{dismissDialog();feedback.show();});
+        addChoice(p,"检查应用更新","检查新版、设置自动下载，由家长确认安装",0xFFE8EDD9,()->showParentGate("请家长帮忙检查应用更新。",updates::show));
         addChoice(p,"家长：重新领养","清空成长记录，回到宠物蛋",0xFFF1E2D9,this::parentGate);
-        TextView privacy=text("芽芽小屋 "+BuildConfig.VERSION_NAME+"\n成长记录保存在本机。只有手动更新会联网。没有广告、内购或账号。",13,Ui.MUTED,false);privacy.setLineSpacing(dp(5),1);p.addView(privacy);sheet("小屋设置","让陪伴更适合你。",p);
+        TextView privacy=text("芽芽小屋 "+BuildConfig.VERSION_NAME+"\n成长记录保存在本机。手动更新、开启自动更新或连接意见服务后会联网。建议和版本信息用于改进应用，不上传学习存档。没有广告或内购。",13,Ui.MUTED,false);privacy.setLineSpacing(dp(5),1);p.addView(privacy);sheet("小屋设置","让陪伴更适合你。",p);
     }
     private void rename(){
         LinearLayout p=Ui.column(this);EditText input=new EditText(this);input.setSingleLine(true);input.setText(state.name);input.setTextSize(23);input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(8)});input.setHint("最多 8 个字");p.addView(input,lp(-1,64));Ui.gap(p,20);
@@ -371,11 +374,11 @@ public final class MainActivity extends Activity {
     private void showParentGate(String reason,Runnable action){
         dismissDialog();family.gate(reason,action);
     }
-    @Override protected void onResume(){super.onResume();if(family!=null){family.onResume();deliverPendingGifts();}if(updates!=null)updates.onResume();if(engine!=null){engine.tick(System.currentTimeMillis());save();}if(room!=null)room.setRunning(true);clock.removeCallbacks(updateClock);clock.postDelayed(updateClock,60000);
+    @Override protected void onResume(){super.onResume();if(family!=null){family.onResume();deliverPendingGifts();}if(updates!=null)updates.onResume();if(feedback!=null)feedback.onResume();if(engine!=null){engine.tick(System.currentTimeMillis());save();}if(room!=null)room.setRunning(true);clock.removeCallbacks(updateClock);clock.postDelayed(updateClock,60000);
         if(Build.VERSION.SDK_INT>=33){if(modernBack==null)modernBack=()->handleBack();getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,modernBack);}}
-    @Override protected void onPause(){super.onPause();if(family!=null)family.onPause();if(updates!=null)updates.onPause();clock.removeCallbacks(updateClock);if(room!=null)room.setRunning(false);if(store!=null)store.save(state);if(voice!=null)voice.stop();
+    @Override protected void onPause(){super.onPause();if(family!=null)family.onPause();if(updates!=null)updates.onPause();if(feedback!=null)feedback.onPause();clock.removeCallbacks(updateClock);if(room!=null)room.setRunning(false);if(store!=null)store.save(state);if(voice!=null)voice.stop();
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(modernBack);}
-    @Override protected void onDestroy(){clock.removeCallbacks(updateClock);if(family!=null)family.destroy();if(updates!=null)updates.destroy();if(shop!=null)shop.dismiss();dismissDialog();if(voice!=null)voice.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){clock.removeCallbacks(updateClock);if(family!=null)family.destroy();if(updates!=null)updates.destroy();if(feedback!=null)feedback.destroy();if(shop!=null)shop.dismiss();dismissDialog();if(voice!=null)voice.shutdown();super.onDestroy();}
     @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(room!=null)room.setRunning(focused);}
     @Override protected void onActivityResult(int request,int result,android.content.Intent data){super.onActivityResult(request,result,data);if(family!=null)family.activityResult(request,result,data);}
     @Override public void onConfigurationChanged(Configuration config){super.onConfigurationChanged(config);Lesson pending=currentLesson;if(room!=null)room.setRunning(false);dismissDialog();buildHome();if(family!=null)family.resize();if(shop!=null)shop.resize();if(pending!=null && pending.index<pending.questions.size())showQuestion(pending);}

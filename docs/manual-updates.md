@@ -21,7 +21,9 @@ Android 10 测试模拟器在首次增加联网权限的覆盖安装后，曾返
 
 仅接受稳定标签 `vX.Y.Z`，拒绝 draft、prerelease、非本仓库资产及缺失的 SHA-256。下载大小上限 100 MiB，连接和读取分别超时 10 秒、20 秒；校验声明大小、SHA-256、包名、递增的 versionCode、与标签一致的 versionName、最低 Android 版本和当前签名。重定向限定 HTTPS 与镜像/GitHub 下载域名。安装前重新校验完整文件，系统安装器只能临时只读访问专用更新 APK。
 
-应用启动、照顾和学习不会访问更新服务。新增联网和安装权限仅用于家长手动更新，宠物存档仍在 `pet_home`，更新信息单独在 `app-update`。
+默认启动、照顾和学习不会访问更新服务。0.4.0 家长可在更新窗口开启「自动检查并下载新版」，在应用进入前台时每六小时最多检查一次；关闭后不再启动新检查或下载，已经开始的下载可以完成。APK 优先经 `https://gh-proxy.com/` 访问本仓库带版本号的 Release 地址，失败回退 139 镜像及 GitHub。不会自动打开安装器。宠物存档仍在 `pet_home`，更新信息单独在 `app-update`，自动更新偏好不会因安装包失效而清除。
+
+「设置 → 意见与改进」通过家长 PIN 后使用家庭配对码连接 `https://home.sunny-string.cn/ai-pet-feedback`。设备只保存本机专用凭据。提交建议、查看方案和进度、进入前台同步已安装版本会联网，不上传宠物或学习记录。后台 Token、方案执行和发布验证见 [意见服务部署说明](../backend/README.md)。
 
 已有共享服务时，上传 `tools/enable_update_service.py` 到服务器并用 sudo 执行。脚本读取当前仓库白名单，添加本仓库，写入 `github-release.service.d/40-ai-pet.conf`，重启并检查健康；失败会恢复之前的配置。保留其他仓库、nginx、代理与缓存。无需再次部署整套 star-collect 服务。
 
@@ -39,7 +41,7 @@ Android 10 测试模拟器在首次增加联网权限的覆盖安装后，曾返
 .\tools\build.ps1 -VersionCode 5 -VersionName 0.2.2
 ```
 
-其他平台使用 `./gradlew assembleRelease -PappVersionCode=5 -PappVersionName=0.2.2`。
+其他平台使用 `./gradlew assembleRelease -PappVersionCode=6 -PappVersionName=0.4.0`。
 
 先完成测试并提交推送，再构建最终 APK，然后执行：
 
@@ -48,6 +50,8 @@ python tools\publish_release.py --tag v0.2.2 --apk artifacts\ai-pet-v0.2.2.apk -
 ```
 
 脚本使用 GitHub CLI 和已有的 GCM 凭据，或进程中的 `GH_TOKEN`，不会打印或保存 token。发布前要求工作区干净且远程 main 与本地 HEAD 一致；先创建草稿并上传 `ai-pet.apk`、`SHA256SUMS`，再正式发布为 latest。镜像元数据缓存最长 60 秒。
+
+0.4.0 起还发布 `update.json`，包括 APK 实际版本、SHA-256、源码提交和实现的意见编号。后续建议任务发布时使用 `--plan-id 意见编号`（可重复指定），再用 `tools/report_feedback.py` 上报经过验证的版本及测试证据。回调只使用任务限定的 `AI_PET_RUN_TOKEN`，不使用 Remote Agent 项目 Token。后台核对 GitHub 稳定 Release、标签提交、清单和 APK 后才接受「已发布」；平板上报相同 versionName/versionCode 后才标记解决。
 
 ## 模拟器回归
 

@@ -9,7 +9,11 @@ public final class ReleasePolicy {
     public static final String REPOSITORY = "string1225/ai-pet", APK_NAME = "ai-pet.apk";
     public static final String MIRROR = "https://home.sunny-string.cn/github-release/" + REPOSITORY;
     public static final String ORIGIN = "https://api.github.com/repos/" + REPOSITORY + "/releases/latest";
+    public static final String PROXY = "https://gh-proxy.com/";
     public static final long MAX_BYTES = 100 * 1024 * 1024L;
+    public static boolean shouldAutoCheck(boolean enabled, boolean busy, long now, long last) {
+        return enabled && !busy && (last == 0 || now < last || now - last >= 6 * 60 * 60 * 1000L);
+    }
     public static final class Version implements Comparable<Version> {
         public final int major, minor, patch;
         private Version(int a, int b, int c) { major = a; minor = b; patch = c; }
@@ -32,6 +36,7 @@ public final class ReleasePolicy {
         public final Asset asset;
         private Release(String tag, String notes, Version version, Asset asset) { this.tag = tag; this.notes = notes; this.version = version; this.asset = asset; }
         public String mirrorUrl() { return MIRROR + "/download/" + tag + "/" + APK_NAME; }
+        public String proxyUrl() { return PROXY + asset.url; }
     }
     public static Release select(String tag, boolean draft, boolean prerelease, String notes, List<Asset> assets) {
         if (draft || prerelease) throw new IllegalArgumentException("只接受正式发布版本");
@@ -48,6 +53,9 @@ public final class ReleasePolicy {
     public static boolean allowedRedirect(String url) {
         try {
             URI u = URI.create(url); String host = u.getHost();
+            if ("gh-proxy.com".equals(host)) {
+                return url.matches("https://gh-proxy\\.com/https://github\\.com/string1225/ai-pet/releases/download/v[0-9]+\\.[0-9]+\\.[0-9]+/(ai-pet\\.apk|update\\.json|SHA256SUMS)");
+            }
             return "https".equals(u.getScheme()) && u.getUserInfo() == null && (u.getPort() == -1 || u.getPort() == 443)
                     && java.util.Arrays.asList("github.com", "api.github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com", "home.sunny-string.cn").contains(host == null ? "" : host.toLowerCase(Locale.ROOT));
         } catch (IllegalArgumentException e) { return false; }

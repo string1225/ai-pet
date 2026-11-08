@@ -12,6 +12,31 @@ ROOT = Path(__file__).resolve().parents[1]
 REPO = "string1225/ai-pet"
 
 
+def apk_version(apk):
+    sdk = Path(os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or Path.home() / ("AppData/Local/Android/Sdk" if os.name == "nt" else "Android/Sdk"))
+    candidates = sorted((sdk / "build-tools").glob("*/aapt2.exe" if os.name == "nt" else "*/aapt2"), reverse=True)
+    if not candidates:
+        raise SystemExit("Android build-tools aapt2 is required to verify APK identity")
+    result = subprocess.run([str(candidates[0]), "dump", "badging", str(apk)], capture_output=True, text=True, timeout=30)
+    match = re.search(r"package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'", result.stdout)
+    if result.returncode or not match or match[1] != "com.string.aipet":
+        raise SystemExit("APK does not have the expected package identity")
+    if "application-debuggable" in result.stdout:
+        raise SystemExit("Refusing to publish a debuggable APK")
+    signer = candidates[0].with_name("apksigner.bat" if os.name == "nt" else "apksigner")
+    signer_env = os.environ.copy()
+    if os.name == "nt" and not signer_env.get("JAVA_HOME"):
+        studio_jdk = Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Android/Android Studio/jbr"
+        if (studio_jdk / "bin/java.exe").exists():
+            signer_env["JAVA_HOME"] = str(studio_jdk)
+    signature = subprocess.run([str(signer), "verify", "--print-certs", str(apk)], env=signer_env, capture_output=True, text=True, timeout=30)
+    expected = "05893ba88f9c0d9a744e9867f11ab46b5c2389a981a1ec316bcd030212080667"
+    actual = re.findall(r"certificate SHA-256 digest: ([a-f0-9]+)", signature.stdout)
+    if signature.returncode or actual != [expected]:
+        raise SystemExit("APK signing certificate differs from the existing app")
+    return int(match[2]), match[3]
+
+
 def github_environment():
     env = os.environ.copy()
     if not (env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")):
@@ -38,6 +63,7 @@ def main():
     parser.add_argument("--tag")
     parser.add_argument("--apk", type=Path)
     parser.add_argument("--notes", type=Path)
+    parser.add_argument("--plan-id", action="append", default=[], help="Feedback IDs implemented by this release")
     args = parser.parse_args()
     env = github_environment()
     if args.check_auth:
@@ -54,6 +80,9 @@ def main():
     apk = args.apk.resolve()
     if not apk.is_file() or apk.stat().st_size <= 0:
         raise SystemExit("APK missing or empty")
+    version_code, version_name = apk_version(apk)
+    if args.tag != "v" + version_name:
+        raise SystemExit("Release tag and APK version differ")
     asset = ROOT / "artifacts" / "ai-pet.apk"
     asset.parent.mkdir(exist_ok=True)
     if apk != asset:
@@ -61,8 +90,13 @@ def main():
         shutil.copyfile(apk, asset)
     sums = asset.parent / "SHA256SUMS"
     sums.write_text(hashlib.sha256(asset.read_bytes()).hexdigest() + "  ai-pet.apk\n", encoding="utf-8")
+    metadata = asset.parent / "update.json"
+    metadata.write_text(json.dumps({"versionName": version_name, "versionCode": version_code,
+        "apkUrl": f"https://github.com/{REPO}/releases/download/{args.tag}/ai-pet.apk",
+        "sha256": hashlib.sha256(asset.read_bytes()).hexdigest(), "sourceCommit": sha,
+        "planIds": sorted(set(args.plan_id + ([os.environ["AI_PET_FEEDBACK_ID"]] if os.environ.get("AI_PET_FEEDBACK_ID") else [])))}, indent=2) + "\n", encoding="utf-8")
     # A draft remains invisible to latest until both files are uploaded.
-    gh(env, "release", "create", args.tag, str(asset), str(sums), "--repo", REPO, "--target", sha, "--title", "芽芽小屋 " + args.tag,
+    gh(env, "release", "create", args.tag, str(asset), str(sums), str(metadata), "--repo", REPO, "--target", sha, "--title", "芽芽小屋 " + args.tag,
        "--notes-file", str(args.notes.resolve()), "--draft")
     gh(env, "release", "edit", args.tag, "--repo", REPO, "--draft=false", "--latest")
     print("https://github.com/" + REPO + "/releases/tag/" + args.tag)

@@ -1,4 +1,4 @@
-param([switch]$Install, [switch]$Debug, [string]$Serial = 'emulator-5556', [int]$VersionCode = 5, [string]$VersionName = '0.3.0')
+param([switch]$Install, [switch]$Debug, [string]$Serial = 'emulator-5556', [int]$VersionCode = 6, [string]$VersionName = '0.4.0')
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectDirectory
@@ -15,6 +15,10 @@ try {
         Set-Content -LiteralPath 'local.properties' -Value "sdk.dir=$escapedSdk" -Encoding utf8
     }
     if ($VersionName -notmatch '^\d+\.\d+\.\d+$' -or $VersionCode -lt 1) { throw 'Use a positive version code and X.Y.Z version name.' }
+    if (-not $env:AI_PET_KEYSTORE) {
+        $existingSigningKey = Join-Path $env:USERPROFILE '.android/ai-pet-release.keystore'
+        if (Test-Path -LiteralPath $existingSigningKey) { $env:AI_PET_KEYSTORE = $existingSigningKey }
+    }
     $variant = if ($Debug) { 'Debug' } else { 'Release' }
     & .\gradlew.bat "assemble$variant" testDebugUnitTest "lint$variant" "-PappVersionCode=$VersionCode" "-PappVersionName=$VersionName" --console=plain
     if ($LASTEXITCODE -ne 0) { throw 'Android build or verification failed.' }
