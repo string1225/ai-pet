@@ -10,10 +10,10 @@
 
 ## Task 1: Service and protocol
 
-Files: backend/feedback_service.py, backend/test_feedback_service.py, backend/README.md, backend/ai-pet-feedback.service.
+Files: backend/feedback_server.py, backend/tests/test_service.py, backend/tests/test_integrations.py, backend/README.md, backend/ai-pet-feedback.service.
 
 - [ ] Write tests for the documented HTTP contract using a temporary SQLite database, loopback server and injected planner/dispatcher/release verifier. Example invariant: two approvals of the same revision result in exactly one dispatch call; wrong revision returns 409.
-- [ ] Run `python -m unittest discover -s backend -p 'test_*.py'` and confirm missing behavior fails.
+- [ ] Run `python -m unittest discover -s backend/tests -p 'test_*.py'` and confirm missing behavior fails.
 - [ ] Implement durable ownership, pair/device/run credentials, plan revision checks, one worker, no automatic ambiguous-dispatch retries, scoped callbacks, release verification and bounded errors according to the spec.
 - [ ] Run the same command; test no real Remote Agent tasks are submitted.
 
